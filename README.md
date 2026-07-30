@@ -20,23 +20,15 @@ Skill совместим с различными AI-агентами. Приме
 git clone https://github.com/prikotov/knowledge-extraction.git .agents/skills/knowledge-extraction
 ```
 
-После установки создайте в корне проекта два файла:
+После установки создайте в корне проекта файл `tasK_token.json`:
 
-`tasK_token.json`:
 ```json
 {
   "access_token": "ваш-токен-доступа"
 }
 ```
 
-`tasK_config.json` (опционально):
-```json
-{
-  "api_url": "https://api.ai-aid.pro/v1"
-}
-```
-
-Скрипты ищут эти файлы, поднимаясь от своего расположения вверх по дереву папок до первого совпадения.
+Скрипты ищут его, поднимаясь от своего расположения вверх по дереву папок до первого совпадения.
 
 ## Как работает
 
@@ -112,7 +104,7 @@ git clone https://github.com/prikotov/knowledge-extraction.git .agents/skills/kn
 
 ## Безопасность
 
-- `tasK_token.json` и `tasK_config.json` — в `.gitignore`, **никогда не коммитятся**
+- `tasK_token.json` — в `.gitignore`, **никогда не коммитится**
 - Сами скрипты не содержат секретов, токен передаётся через переменную окружения `TASK_API_TOKEN`
 
 ## Лицензия
