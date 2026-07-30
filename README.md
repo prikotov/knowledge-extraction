@@ -10,7 +10,7 @@
 
 ## Зависимости
 
-Требует доступ к [TasK API](https://task.ai-aid.pro) ([документация](https://docs.ai-aid.pro/redocly)). Для получения доступа — [напишите Дмитрию](https://prikotov.pro/obo-mne).
+Требует доступ к [TasK API](https://task.ai-aid.pro) ([документация](https://docs.ai-aid.pro/redocly)). Для получения доступа — [напишите команде](https://task.ai-aid.pro/ru/team).
 
 ## Установка
 
