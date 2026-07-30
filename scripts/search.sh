@@ -23,10 +23,12 @@ while [ "$ARTICLE_DIR" != "/" ] && [ ! -f "$ARTICLE_DIR/.tasK_project.json" ] &&
 done
 
 if [ -f "$ARTICLE_DIR/.tasK_config.json" ]; then
-  TASK_API_URL="${TASK_API_URL:-$(jq -r '.api_url // empty' "$ARTICLE_DIR/.tasK_config.json")}"
+  TASK_API_URL=$(jq -r '.api_url // empty' "$ARTICLE_DIR/.tasK_config.json")
 fi
 if [ -f "$ARTICLE_DIR/.tasK_token.json" ]; then
-  TASK_API_TOKEN="${TASK_API_TOKEN:-$(jq -r '.access_token // empty' "$ARTICLE_DIR/.tasK_token.json")}"
+  TASK_API_TOKEN=$(jq -r '.access_token // empty' "$ARTICLE_DIR/.tasK_token.json")
+else
+  die ".tasK_token.json не найден. Создайте файл с access_token в корне проекта."
 fi
 
 # ─── args ──────────────────────────────────────────
@@ -68,7 +70,7 @@ api() {
   http_code=$(curl -sS -o "$tmpfile" -w "%{http_code}" \
     -X "$method" "${TASK_API_URL}${path}" \
     -H "Content-Type: application/json" \
-    ${TASK_API_TOKEN:+-H "Authorization: Bearer $TASK_API_TOKEN"} \
+    -H "Authorization: Bearer $TASK_API_TOKEN" \
     ${data:+-d "$data"}) || curl_rc=$?
   cat "$tmpfile"; rm -f "$tmpfile"
   [ "${curl_rc:-0}" -ne 0 ] && return 1
