@@ -118,4 +118,4 @@ MIT
 
 ---
 
-> Постановка задачи, архитектура, ревью — [Dmitry Prikotov](https://prikotov.pro/), реализация — deepseek-v4-pro в [pi](https://pi.dev) сквозь слёзы и мучения
+> Постановка задачи, ревью — [Dmitry Prikotov](https://prikotov.pro/), реализация — deepseek-v4-pro в [pi](https://pi.dev) (интересно было посмотреть как deepseek-v4-pro справится с написанием скила, я страдал)
