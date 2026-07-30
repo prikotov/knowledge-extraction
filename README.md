@@ -77,11 +77,7 @@
 
 ## Интеграция с AI-агентами
 
-Этот проект оформлен как навык (skill) для AI-агентов — [pi coding agent](https://github.com/earendil-works/pi-coding-agent), Claude Code, Codex и других.
-
-Файл `SKILL.md` содержит frontmatter и инструкции: когда использовать навык, как вызывать скрипты, как вести диалог с материалом и оформлять результат.
-
-Чтобы подключить навык, создай симлинк в `.agents/skills/` агента:
+Чтобы подключить навык, создай симлинк в `.agents/skills/` проекта:
 
 ```bash
 ln -s ~/MyProjects/knowledge-extraction .agents/skills/knowledge-extraction
