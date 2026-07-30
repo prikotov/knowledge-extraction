@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ingest.sh — загружает материал в TasK, ждёт готовности.
-# Создаёт/переиспользует проект и source, кеширует UUID в tasK_project.json.
+# Создаёт/переиспользует проект и source, кеширует UUID в .tasK_project.json.
 #
 # Использование: ./ingest.sh --source-url <URL> [--project <UUID>]
 
@@ -14,17 +14,17 @@ info() { echo "[INFO]  $*" >&2; }
 TASK_API_URL="${TASK_API_URL:-https://api.ai-aid.pro/v1}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Ищем корень статьи: идём вверх, пока не найдём tasK_project.json или tasK_config.json
+# Ищем корень статьи: идём вверх, пока не найдём .tasK_project.json или .tasK_config.json
 ARTICLE_DIR="$SCRIPT_DIR"
-while [ "$ARTICLE_DIR" != "/" ] && [ ! -f "$ARTICLE_DIR/tasK_project.json" ] && [ ! -f "$ARTICLE_DIR/tasK_config.json" ]; do
+while [ "$ARTICLE_DIR" != "/" ] && [ ! -f "$ARTICLE_DIR/.tasK_project.json" ] && [ ! -f "$ARTICLE_DIR/.tasK_config.json" ]; do
   ARTICLE_DIR="$(dirname "$ARTICLE_DIR")"
 done
 
-if [ -f "$ARTICLE_DIR/tasK_config.json" ]; then
-  TASK_API_URL="${TASK_API_URL:-$(jq -r '.api_url // empty' "$ARTICLE_DIR/tasK_config.json")}"
+if [ -f "$ARTICLE_DIR/.tasK_config.json" ]; then
+  TASK_API_URL="${TASK_API_URL:-$(jq -r '.api_url // empty' "$ARTICLE_DIR/.tasK_config.json")}"
 fi
-if [ -f "$ARTICLE_DIR/tasK_token.json" ]; then
-  TASK_API_TOKEN="${TASK_API_TOKEN:-$(jq -r '.access_token // empty' "$ARTICLE_DIR/tasK_token.json")}"
+if [ -f "$ARTICLE_DIR/.tasK_token.json" ]; then
+  TASK_API_TOKEN="${TASK_API_TOKEN:-$(jq -r '.access_token // empty' "$ARTICLE_DIR/.tasK_token.json")}"
 fi
 
 # ─── args ──────────────────────────────────────────
@@ -71,7 +71,7 @@ fi
 
 # ─── Project ───────────────────────────────────────
 
-PROJECT_FILE="$ARTICLE_DIR/tasK_project.json"
+PROJECT_FILE="$ARTICLE_DIR/.tasK_project.json"
 [ -f "$PROJECT_FILE" ] || echo '{"uuid":"","sources":{}}' > "$PROJECT_FILE"
 
 [ -z "$PROJECT_UUID" ] && PROJECT_UUID=$(jq -r '.uuid // empty' "$PROJECT_FILE")

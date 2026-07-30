@@ -20,7 +20,7 @@ Skill совместим с различными AI-агентами. Приме
 git clone https://github.com/prikotov/knowledge-extraction.git .agents/skills/knowledge-extraction
 ```
 
-После установки создайте в корне проекта файл `tasK_token.json`:
+После установки создайте в корне проекта файл `.tasK_token.json`:
 
 ```json
 {
@@ -108,8 +108,8 @@ Skill использует методы TasK API:
 
 ## Безопасность
 
-- `tasK_token.json` — в `.gitignore`, **никогда не коммитится**
-- Сами скрипты не содержат секретов: токен читается из `tasK_token.json` или переменной окружения `TASK_API_TOKEN`
+- `.tasK_token.json` — в `.gitignore`, **никогда не коммитится**
+- Сами скрипты не содержат секретов: токен читается из `.tasK_token.json` или переменной окружения `TASK_API_TOKEN`
 
 ## Лицензия
 
