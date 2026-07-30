@@ -114,7 +114,7 @@ Skill использует методы TasK API:
 
 ## Лицензия
 
-MIT. См. [LICENSE](./LICENSE).
+MIT
 
 ---
 
