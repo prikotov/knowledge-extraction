@@ -77,10 +77,10 @@
 
 ## Интеграция с AI-агентами
 
-Чтобы подключить навык, создай симлинк в `.agents/skills/` проекта:
+Чтобы подключить навык, добавь симлинк на репозиторий в `.agents/skills/` проекта.
 
 ```bash
-ln -s ~/MyProjects/knowledge-extraction .agents/skills/knowledge-extraction
+ln -s /path/to/knowledge-extraction .agents/skills/knowledge-extraction
 ```
 
 ## Безопасность
