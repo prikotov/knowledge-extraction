@@ -102,10 +102,12 @@ parse_sse() {
 if [ -z "$CHAT_UUID" ]; then
   [ -z "$PROJECT_UUID" ] && die "Не указан project (--project или tasK_project.json)"
 
+  # Метаданные sources — нужны для title и вопроса по умолчанию
+  SRC_META=$(api GET "/projects/${PROJECT_UUID}/sources" 2>/dev/null) || true
+
   # Первый вопрос по умолчанию
   if [ -z "$QUESTION" ]; then
     SRC_TITLE=""
-    SRC_META=$(api GET "/projects/${PROJECT_UUID}/sources" 2>/dev/null) || true
     # Берём title первого source'а, если он указан
     if [ ${#SOURCE_UUIDS[@]} -gt 0 ]; then
       SRC_TITLE=$(echo "$SRC_META" | jq -r --arg uuid "${SOURCE_UUIDS[0]}" \
