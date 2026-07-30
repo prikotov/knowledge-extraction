@@ -1,0 +1,13 @@
+# TasK API secrets — НИКОГДА не коммитить
+tasK_token.json
+tasK_config.json
+
+# Локальное состояние проекта (UUID, маппинги URL → source)
+# Безопасно коммитить, но обычно генерируется автоматически на месте использования
+tasK_project.json
+
+# Временные файлы
+*.tmp
+*.swp
+*~
+.DS_Store
