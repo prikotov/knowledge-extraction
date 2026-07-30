@@ -117,7 +117,7 @@ ln -s ~/MyProjects/knowledge-extraction .agents/skills/knowledge-extraction
 
 ## Связь с TasK
 
-Knowledge Extraction работает поверх [TasK API](https://docs.ai-aid.pro/redocly) — платформы для работы с AI-агентами и документами. TasK обеспечивает:
+Knowledge Extraction работает поверх [TasK](https://task.ai-aid.pro) — платформы для работы с AI-агентами и документами ([документация API](https://docs.ai-aid.pro/redocly)). TasK обеспечивает:
 
 - Загрузку и индексацию источников (веб-страницы, YouTube, файлы)
 - Чанкинг и эмбеддинги
