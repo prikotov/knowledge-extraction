@@ -97,13 +97,13 @@ github.com/.../wsff.md → ready
 Изменений: 1
 ```
 
-## Интеграция с pi coding agent
+## Интеграция с AI-агентами
 
-Этот проект одновременно является навыком (skill) для [pi coding agent](https://github.com/earendil-works/pi-coding-agent).
+Этот проект оформлен как навык (skill) для AI-агентов — [pi coding agent](https://github.com/earendil-works/pi-coding-agent), Claude Code, Codex и других.
 
-Файл `SKILL.md` содержит frontmatter и инструкции для pi-агента: когда использовать навык, как вызывать скрипты, как вести диалог с материалом и оформлять результат.
+Файл `SKILL.md` содержит frontmatter и инструкции: когда использовать навык, как вызывать скрипты, как вести диалог с материалом и оформлять результат.
 
-Чтобы подключить навык в pi-проект, создай симлинк:
+Чтобы подключить навык, создай симлинк в `.agents/skills/` агента:
 
 ```bash
 ln -s ~/MyProjects/knowledge-extraction .agents/skills/knowledge-extraction
