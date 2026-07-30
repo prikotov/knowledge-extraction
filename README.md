@@ -118,4 +118,4 @@ MIT
 
 ---
 
-> Постановка задач, архитектура, ревью — [Dmitry Prikotov](https://prikotov.pro/), реализация — GLM-5 в [pi](https://pi.dev)
+> Постановка задачи, архитектура, ревью — [Dmitry Prikotov](https://prikotov.pro/), реализация — deepseek-v4-pro в [pi](https://pi.dev) сквозь слёзы и мучения
