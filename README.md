@@ -14,10 +14,10 @@
 
 ## Установка
 
-Skill совместим с различными AI-агентами. Примеры ниже даны для OpenCode — для других инструментов смотрите их документацию по установке skills.
+Skill совместим с различными AI-агентами. Примеры ниже даны для [pi](https://pi.dev) — для других инструментов смотрите их документацию по установке skills.
 
 ```bash
-git clone https://github.com/prikotov/knowledge-extraction.git .opencode/skills/knowledge-extraction
+git clone https://github.com/prikotov/knowledge-extraction.git .agents/skills/knowledge-extraction
 ```
 
 После установки создайте в корне проекта два файла:
@@ -121,4 +121,4 @@ MIT. См. [LICENSE](./LICENSE).
 
 ---
 
-> Постановка задач, архитектура, ревью — [Dmitry Prikotov](https://prikotov.pro/), реализация — GLM-5 в [OpenCode](https://opencode.ai)
+> Постановка задач, архитектура, ревью — [Dmitry Prikotov](https://prikotov.pro/), реализация — GLM-5 в [pi](https://pi.dev)
