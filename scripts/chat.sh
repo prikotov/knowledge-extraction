@@ -19,19 +19,19 @@ warn() { echo "[WARN]  $*" >&2; }
 TASK_API_URL="${TASK_API_URL:-https://api.ai-aid.pro/v1}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Ищем корень статьи: идём вверх, пока не найдём .tasK_project.json или .tasK_config.json
+# Ищем корень статьи: идём вверх, пока не найдём .task_project.json или .task_config.json
 ARTICLE_DIR="$SCRIPT_DIR"
-while [ "$ARTICLE_DIR" != "/" ] && [ ! -f "$ARTICLE_DIR/.tasK_project.json" ] && [ ! -f "$ARTICLE_DIR/.tasK_config.json" ]; do
+while [ "$ARTICLE_DIR" != "/" ] && [ ! -f "$ARTICLE_DIR/.task_project.json" ] && [ ! -f "$ARTICLE_DIR/.task_config.json" ]; do
   ARTICLE_DIR="$(dirname "$ARTICLE_DIR")"
 done
 
-if [ -f "$ARTICLE_DIR/.tasK_config.json" ]; then
-  TASK_API_URL=$(jq -r '.api_url // empty' "$ARTICLE_DIR/.tasK_config.json")
+if [ -f "$ARTICLE_DIR/.task_config.json" ]; then
+  TASK_API_URL=$(jq -r '.api_url // empty' "$ARTICLE_DIR/.task_config.json")
 fi
-if [ -f "$ARTICLE_DIR/.tasK_token.json" ]; then
-  TASK_API_TOKEN=$(jq -r '.access_token // empty' "$ARTICLE_DIR/.tasK_token.json")
+if [ -f "$ARTICLE_DIR/.task_token.json" ]; then
+  TASK_API_TOKEN=$(jq -r '.access_token // empty' "$ARTICLE_DIR/.task_token.json")
 else
-  die ".tasK_token.json не найден. Создайте файл с access_token в корне проекта."
+  die ".task_token.json не найден. Создайте файл с access_token в корне проекта."
 fi
 
 # ─── args ──────────────────────────────────────────
@@ -57,7 +57,7 @@ done
 
 # ─── resolve source ────────────────────────────────
 
-PROJECT_FILE="$ARTICLE_DIR/.tasK_project.json"
+PROJECT_FILE="$ARTICLE_DIR/.task_project.json"
 normalize_url() { echo "$1" | sed -E 's|^https?://||; s|^www\.||; s|/+$||' | tr '[:upper:]' '[:lower:]'; }
 
 [ -z "$PROJECT_UUID" ] && [ -f "$PROJECT_FILE" ] && PROJECT_UUID=$(jq -r '.uuid // empty' "$PROJECT_FILE")
@@ -102,7 +102,7 @@ parse_sse() {
 # ─── Новый диалог или продолжение ──────────────────
 
 if [ -z "$CHAT_UUID" ]; then
-  [ -z "$PROJECT_UUID" ] && die "Не указан project (--project или .tasK_project.json)"
+  [ -z "$PROJECT_UUID" ] && die "Не указан project (--project или .task_project.json)"
 
   # Метаданные sources — нужны для title и вопроса по умолчанию
   SRC_META=$(api GET "/projects/${PROJECT_UUID}/sources" 2>/dev/null) || true
