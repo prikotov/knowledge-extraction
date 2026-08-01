@@ -33,7 +33,8 @@ git clone https://github.com/prikotov/knowledge-extraction.git .agents/skills/kn
 в нём и родительских каталогах. Для явного выбора каталога можно задать
 `KNOWLEDGE_EXTRACTION_WORKSPACE=/path/to/project`.
 
-Необязательный `.task_config.json` переопределяет адрес API:
+Необязательный `.task_config.json` — конфигурация Skill. Сейчас он поддерживает
+переопределение адреса API:
 
 ```json
 {
