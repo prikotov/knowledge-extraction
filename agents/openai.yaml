@@ -1,0 +1,4 @@
+interface:
+  display_name: "Knowledge Extraction"
+  short_description: "Извлечение знаний из больших материалов"
+  default_prompt: "Используй $knowledge-extraction, чтобы изучить материал и подготовить подтверждённое источником резюме."

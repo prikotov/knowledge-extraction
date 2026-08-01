@@ -1,18 +1,24 @@
 ---
 name: knowledge-extraction
 description: >-
-  Извлекает структурированные знания из любых внешних материалов (статьи,видео, документы).
-  Используй когда пользователь просит: изучить материал, дать резюме,
-  собрать саммари, сделать обзор, рассказать о чём статья/видео, разобрать
-  статью, найти цитаты или тезисы, подготовить краткое содержание,
-  поговорить с документом.
+  Загружает URL и локальные файлы в TasK API и извлекает из них структурированные
+  знания без помещения всего материала в контекст. Используй для больших статей,
+  видео, аудио и документов, когда пользователь просит изучить материал, сделать
+  резюме или обзор, найти подтверждённые цитаты и тезисы либо поговорить с документом.
 ---
 
 # Knowledge Extraction
 
-## Когда использовать
+## Предварительные условия
 
-- Убедись, что на уровне статьи есть `.task_token.json` и `.task_config.json` (доступ к TasK API).
+- Выполняй команды из рабочего каталога пользователя, не из каталога Skill.
+- Определи `SKILL_DIR` как каталог, содержащий этот `SKILL.md`.
+- Убедись, что в корне рабочего проекта есть `.task_token.json` с непустым `access_token`.
+- Используй `.task_config.json` только для необязательного переопределения `{"api_url":"..."}`.
+- Требуются Bash, `curl`, `jq` и GNU `realpath`.
+
+Скрипты ищут рабочий корень вверх от `$PWD`. Для явного выбора задай
+`KNOWLEDGE_EXTRACTION_WORKSPACE=/path/to/project`.
 
 ## Как использовать
 
@@ -25,13 +31,13 @@ ingest → chat   (поговорить с документом — приори
 
 ```bash
 # Загрузить один источник (ждёт готовности)
-./scripts/ingest.sh --source-url <URL>
+"${SKILL_DIR}/scripts/ingest.sh" --source-url <URL>
 
 # Загрузить локальный файл (multipart/form-data)
-./scripts/ingest.sh --source-file "/path/to/video.mp4"
+"${SKILL_DIR}/scripts/ingest.sh" --source-file "/path/to/video.mp4"
 
 # Проверить статусы всех источников (без ожидания)
-./scripts/ingest.sh --check
+"${SKILL_DIR}/scripts/ingest.sh" --check
 ```
 
 Опции:
@@ -55,16 +61,16 @@ YouTube обрабатывается дольше — транскрибация
 
 ```bash
 # Новый диалог — вернёт chat_uuid=... первой строкой
-./scripts/chat.sh --source <UUID>
+"${SKILL_DIR}/scripts/chat.sh" --source <UUID>
 
 # Или с несколькими источниками
-./scripts/chat.sh --source <UUID1> --source <UUID2>
+"${SKILL_DIR}/scripts/chat.sh" --source <UUID1> --source <UUID2>
 
 # Или без источников — используются все source'ы проекта
-./scripts/chat.sh
+"${SKILL_DIR}/scripts/chat.sh"
 
 # Продолжить диалог — указать chat_uuid из вывода предыдущего вызова
-./scripts/chat.sh --chat <UUID> --question "..."
+"${SKILL_DIR}/scripts/chat.sh" --chat <UUID> --question "..."
 ```
 
 Опции:
@@ -80,9 +86,9 @@ YouTube обрабатывается дольше — транскрибация
 
 Агент ведёт диалог, а не кидает все вопросы разом:
 
-1. `./scripts/chat.sh --source-url ... --title "Дороничев — прыжок веры"` — первый вопрос с осмысленным именем чата
+1. `"${SKILL_DIR}/scripts/chat.sh" --source-url ... --title "Дороничев — прыжок веры"` — первый вопрос с осмысленным именем чата
 2. Читает ответ, видит пробелы или интересные нити
-3. `./scripts/chat.sh --chat <UUID> --question "..."` — уточняющий вопрос в том же чате
+3. `"${SKILL_DIR}/scripts/chat.sh" --chat <UUID> --question "..."` — уточняющий вопрос в том же чате
 4. Повторяет, пока не извлечёт нужное
 
 **Не создавай новый чат без необходимости.** Если диалог уже начат — продолжай его через `--chat <UUID>`. Новый чат — только для нового материала или новой темы.
@@ -109,10 +115,10 @@ YouTube обрабатывается дольше — транскрибация
 
 ```bash
 # Один запрос — один вызов
-./scripts/search.sh --source <UUID> --query "запрос"
+"${SKILL_DIR}/scripts/search.sh" --source <UUID> --query "запрос"
 
 # Прочитал результат, видишь пробел — следующий запрос
-./scripts/search.sh --source <UUID> --query "уточняющий запрос"
+"${SKILL_DIR}/scripts/search.sh" --source <UUID> --query "уточняющий запрос"
 ```
 
 Опции:
@@ -126,9 +132,9 @@ YouTube обрабатывается дольше — транскрибация
 
 Агент ведёт поиск итеративно, как диалог:
 
-1. `./scripts/search.sh --query "основной тезис"` — первый запрос
+1. `"${SKILL_DIR}/scripts/search.sh" --query "основной тезис"` — первый запрос
 2. Читает чанки, видит пробелы
-3. `./scripts/search.sh --query "уточнение по теме X"` — следующий запрос
+3. `"${SKILL_DIR}/scripts/search.sh" --query "уточнение по теме X"` — следующий запрос
 4. Повторяет, пока не соберёт достаточно фактов
 
 ### Шаг 3: Оформить результат
@@ -138,41 +144,48 @@ YouTube обрабатывается дольше — транскрибация
 - **Саммари** — суть + ключевые тезисы с цитатами
 - **Факты** — утверждения автора с подтверждающими фрагментами
 - **Рекомендации** — выводы и практические следствия из материала
-- **Дайджест-карточка** — добавить авторский отклик и связи, сохранить в `research/саммари/`
+
+Соблюдай достоверность:
+
+- Отделяй утверждения автора от собственных выводов.
+- Не выдавай пересказ за точную цитату.
+- Для точной цитаты найди исходный чанк через `search.sh` и сверь формулировку.
+- Ссылайся на исходный URL или имя локального файла.
+- Если материал не подтверждает ответ или источники противоречат друг другу, скажи об этом явно.
 
 ### Примеры
 
-**Полный цикл для дайджеста:**
+**Полный цикл извлечения:**
 
 ```bash
 # 1. Загрузить
-./scripts/ingest.sh --source-url "https://habr.com/ru/articles/1061876/"
+"${SKILL_DIR}/scripts/ingest.sh" --source-url "https://habr.com/ru/articles/1061876/"
 
 # 2. Начать диалог (вернёт chat_uuid=...)
-./scripts/chat.sh --source-url "https://habr.com/ru/articles/1061876/"
+"${SKILL_DIR}/scripts/chat.sh" --source-url "https://habr.com/ru/articles/1061876/"
 
 # 3. Уточнить
-./scripts/chat.sh --chat <UUID> --question "Какие 4 убеждения разбирает автор?"
+"${SKILL_DIR}/scripts/chat.sh" --chat <UUID> --question "Какие 4 убеждения разбирает автор?"
 
-# 4. Сохранить ответы, добавить отклик и связи
+# 4. Оформить подтверждённый материалом ответ
 ```
 
-**Диалог (без дайджеста):**
+**Диалог:**
 
 ```bash
-./scripts/ingest.sh --source-url "https://habr.com/ru/articles/1061876/"
-./scripts/chat.sh --source-url "https://habr.com/ru/articles/1061876/"
+"${SKILL_DIR}/scripts/ingest.sh" --source-url "https://habr.com/ru/articles/1061876/"
+"${SKILL_DIR}/scripts/chat.sh" --source-url "https://habr.com/ru/articles/1061876/"
 # → читаем ответ, задаём уточняющие вопросы через --chat <UUID>
 ```
 
 **Поиск чанков (запасной режим):**
 
 ```bash
-./scripts/search.sh --source-url "https://habr.com/ru/articles/1061876/" \
+"${SKILL_DIR}/scripts/search.sh" --source-url "https://habr.com/ru/articles/1061876/" \
   --query "теория локуса контроля Роттера"
 
 # → читаем чанки, видим что не раскрыта тема таланта
-./scripts/search.sh --source-url "https://habr.com/ru/articles/1061876/" \
+"${SKILL_DIR}/scripts/search.sh" --source-url "https://habr.com/ru/articles/1061876/" \
   --query "талант врождённый или приобретённый"
 ```
 
@@ -184,18 +197,16 @@ YouTube обрабатывается дольше — транскрибация
 
 **`search.sh`** — чанки с номерами и текстом в markdown.
 
-Для дайджест-карточки агент добавляет к выводу `chat.sh` или `search.sh` поля «Что откликнулось» и «Связи» и сохраняет в `research/саммари/<порядковый-номер>-<slug>.md`.
-
 ## Локальные файлы
 
-Один файл на уровне статьи — `.task_project.json`. Хранит UUID проекта, маппинг URL → source UUID и статус каждого источника (`pending` / `processing` / `ready` / `failed`). Создаётся автоматически при первом запуске `ingest.sh`.
+Один файл на уровне рабочего проекта — `.task_project.json`. Хранит UUID проекта, маппинг URL → source UUID и статус каждого источника (`pending` / `processing` / `ready` / `failed`). Создаётся автоматически при первом запуске `ingest.sh`.
 
 Статусы обновляются:
 - При загрузке — `ingest.sh` сохраняет актуальный статус после ожидания
 - Без ожидания — `ingest.sh --check` сверяет кеш с API и показывает изменения
 
 ```bash
-$ ./scripts/ingest.sh --check
+$ "${SKILL_DIR}/scripts/ingest.sh" --check
 youtube.com/watch?v=... → processing ✦
 github.com/.../wsff.md → ready
 Изменений: 1

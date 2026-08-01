@@ -2,7 +2,7 @@
 set -euo pipefail
 unset ALL_PROXY HTTPS_PROXY HTTP_PROXY
 ROOT=$(cd "$(dirname "$0")/.." && pwd); TMP=$(mktemp -d); trap 'kill "${PID:-}" 2>/dev/null || true; rm -rf "$TMP"' EXIT
-cp -R "$ROOT/scripts" "$TMP/scripts"; echo '{"access_token":"test"}' > "$TMP/.task_token.json"; echo '{"uuid":"p","sources":{}}' > "$TMP/.task_project.json"; echo content > "$TMP/video sample.mp4"
+cp -R "$ROOT/scripts" "$TMP/scripts"; echo '{"access_token":"test"}' > "$TMP/.task_token.json"; echo '{"uuid":"","sources":{}}' > "$TMP/.task_project.json"; echo content > "$TMP/video sample.mp4"
 cat > "$TMP/server.py" <<'PY'
 from http.server import BaseHTTPRequestHandler,HTTPServer
 import json
@@ -19,6 +19,7 @@ class H(BaseHTTPRequestHandler):
 s=HTTPServer(('127.0.0.1',0),H); print(s.server_port,flush=True); s.serve_forever()
 PY
 python3 "$TMP/server.py" > "$TMP/port" & PID=$!; until [ -s "$TMP/port" ]; do sleep .05; done
-TASK_API_URL="http://127.0.0.1:$(cat "$TMP/port")/v1" "$TMP/scripts/ingest.sh" --source-file "$TMP/video sample.mp4" > "$TMP/out"
+(cd "$TMP" && TASK_API_URL="http://127.0.0.1:$(cat "$TMP/port")/v1" ./scripts/ingest.sh --project p --source-file "$TMP/video sample.mp4" > "$TMP/out")
 grep -q 'source_uuid=file-1' "$TMP/out"; jq -e '.sources[] | select(.uuid=="file-1" and .status=="ready")' "$TMP/.task_project.json" >/dev/null
+jq -e '.uuid == "p"' "$TMP/.task_project.json" >/dev/null
 echo 'local-file-upload: ok'

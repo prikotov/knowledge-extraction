@@ -4,15 +4,10 @@
 #               ./ingest.sh --check [--project <UUID>]
 set -euo pipefail
 
-die() { echo "[ERROR] $*" >&2; exit 1; }
-info() { echo "[INFO]  $*" >&2; }
-TASK_API_URL="${TASK_API_URL:-https://api.ai-aid.pro/v1}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-ARTICLE_DIR="$SCRIPT_DIR"
-while [ "$ARTICLE_DIR" != / ] && [ ! -f "$ARTICLE_DIR/.task_project.json" ] && [ ! -f "$ARTICLE_DIR/.task_config.json" ]; do ARTICLE_DIR="$(dirname "$ARTICLE_DIR")"; done
-[ -f "$ARTICLE_DIR/.task_config.json" ] && TASK_API_URL=$(jq -r '.api_url // empty' "$ARTICLE_DIR/.task_config.json")
-[ -f "$ARTICLE_DIR/.task_token.json" ] || die ".task_token.json не найден. Создайте файл с access_token в корне проекта."
-TASK_API_TOKEN=$(jq -r '.access_token // empty' "$ARTICLE_DIR/.task_token.json")
+# shellcheck source=common.sh
+source "$SCRIPT_DIR/common.sh"
+load_task_environment
 
 URL=""; SOURCE_FILE=""; PROJECT_UUID=""; CHECK_ONLY=false
 while [ $# -gt 0 ]; do
@@ -29,24 +24,6 @@ if [ -n "$URL" ] && [ -f "$URL" ] && [ -z "$SOURCE_FILE" ]; then SOURCE_FILE="$U
 [ -n "$URL" ] && [ -n "$SOURCE_FILE" ] && die "Укажите только --source-url или --source-file"
 ! "$CHECK_ONLY" && [ -z "$URL" ] && [ -z "$SOURCE_FILE" ] && die "Нужен --source-url или --source-file (или --check)"
 
-# Successful response body goes to stdout. Every failure is safe diagnostic on stderr.
-api() {
- local method="$1" path="$2" data="${3:-}" body headers code rc detail
- body=$(mktemp); headers=$(mktemp)
- if [ -n "$data" ]; then
-  code=$(curl -sS -o "$body" -D "$headers" -w '%{http_code}' -X "$method" "${TASK_API_URL}${path}" -H 'Content-Type: application/json' -H "Authorization: Bearer $TASK_API_TOKEN" -d "$data" 2>/dev/null) || rc=$?
- else
-  code=$(curl -sS -o "$body" -D "$headers" -w '%{http_code}' -X "$method" "${TASK_API_URL}${path}" -H 'Content-Type: application/json' -H "Authorization: Bearer $TASK_API_TOKEN" 2>/dev/null) || rc=$?
- fi
- if [ "${rc:-0}" -ne 0 ] || [ "$code" = 000 ]; then rm -f "$body" "$headers"; echo 'TasK API request failed.' >&2; return 1; fi
- if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then
-  detail=$(jq -r 'if type == "object" and (.detail | type == "string") then .detail else empty end' "$body" 2>/dev/null || true)
-  if [ -n "$detail" ]; then echo "HTTP $code: $detail" >&2; else echo "HTTP $code: TasK API returned an unexpected error." >&2; fi
-  rm -f "$body" "$headers"; return 1
- fi
- cat "$body"; rm -f "$body" "$headers"
-}
-normalize_url() { echo "$1" | sed -E 's|^https?://||; s|^www\.||; s|/+$||' | tr '[:upper:]' '[:lower:]'; }
 api_file() {
  local path="$1" file="$2" body headers code rc detail
  body=$(mktemp); headers=$(mktemp)
@@ -59,13 +36,12 @@ api_file() {
  fi
  cat "$body"; rm -f "$body" "$headers"
 }
-normalize_file() { realpath -m "$1" | tr '[:upper:]' '[:lower:]'; }
 
 # Retrieves every API page. The endpoint's pagination.total is the stop condition.
 all_sources() {
  local offset=0 limit=100 total=-1 page count pages=()
  while :; do
-  page=$(api GET "/projects/${PROJECT_UUID}/sources?limit=${limit}&offset=${offset}") || return 1
+  page=$(api_json GET "/projects/${PROJECT_UUID}/sources?limit=${limit}&offset=${offset}") || return 1
   pages+=("$page")
   count=$(jq '.items | length' <<<"$page")
   total=$(jq -r '.pagination.total // empty' <<<"$page")
@@ -77,19 +53,29 @@ all_sources() {
  printf '%s\n' "${pages[@]}" | jq -s '{items: [.[].items[]?]}'
 }
 
-api GET '/projects' >/dev/null || die 'TasK API недоступен'
-PROJECT_FILE="$ARTICLE_DIR/.task_project.json"
+"$CHECK_ONLY" && [ ! -f "$PROJECT_FILE" ] && [ -z "$PROJECT_UUID" ] \
+  && die "Для --check нужен существующий .task_project.json или --project"
+api_json GET '/projects' >/dev/null || die 'TasK API недоступен'
 [ -f "$PROJECT_FILE" ] || echo '{"uuid":"","sources":{}}' > "$PROJECT_FILE"
-[ -z "$PROJECT_UUID" ] && PROJECT_UUID=$(jq -r '.uuid // empty' "$PROJECT_FILE")
+CACHED_PROJECT_UUID=$(jq -r '.uuid // empty' "$PROJECT_FILE")
+if [ -n "$PROJECT_UUID" ] && [ -n "$CACHED_PROJECT_UUID" ] && [ "$PROJECT_UUID" != "$CACHED_PROJECT_UUID" ]; then
+ die "--project не совпадает с UUID в .task_project.json"
+fi
+[ -z "$PROJECT_UUID" ] && PROJECT_UUID="$CACHED_PROJECT_UUID"
+"$CHECK_ONLY" && [ -z "$PROJECT_UUID" ] && die "Для --check нужен существующий .task_project.json или --project"
 PROJECT_TITLE=$(basename "$ARTICLE_DIR")
-if [ -z "$PROJECT_UUID" ]; then
+if [ -n "$PROJECT_UUID" ]; then
+ jq --arg uuid "$PROJECT_UUID" '.uuid=$uuid' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
+else
  info "Создаю проект: $PROJECT_TITLE"
- PROJECT_JSON=$(api POST '/projects' "$(jq -n --arg title "$PROJECT_TITLE" '{title:$title,description:"Дайджест-подборка"}')") || PROJECT_JSON=''
+ PROJECT_JSON=$(api_json POST '/projects' "$(jq -n --arg title "$PROJECT_TITLE" '{title:$title,description:"Материалы для извлечения знаний"}')") \
+   || die 'Не удалось создать проект'
  PROJECT_UUID=$(jq -r '.uuid // empty' <<<"$PROJECT_JSON")
  if [ -z "$PROJECT_UUID" ]; then
-  info 'Проект уже существует, ищу…'; PROJECTS_JSON=$(api GET /projects) || die 'Не удалось получить проекты'
+  info 'Проект уже существует, ищу…'
+  PROJECTS_JSON=$(api_json GET /projects) || die 'Не удалось получить проекты'
   PROJECT_UUID=$(jq -r --arg t "$PROJECT_TITLE" '.items[] | select(.title==$t) | .uuid // empty' <<<"$PROJECTS_JSON" | head -n1)
-  [ -n "$PROJECT_UUID" ] || die 'Не удалось найти или создать проект'
+  [ -n "$PROJECT_UUID" ] || die 'TasK API не вернул UUID созданного проекта'
  fi
  jq --arg uuid "$PROJECT_UUID" '.uuid=$uuid' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
 fi
@@ -128,16 +114,17 @@ if "$CHECK_ONLY"; then
  echo "Изменений: $((MERGED_UPDATED + MERGED_IMPORTED))"; exit 0
 fi
 
-if [ -n "$SOURCE_FILE" ]; then SOURCE_VALUE=$(realpath -m "$SOURCE_FILE"); NORM_URL=$(normalize_file "$SOURCE_FILE"); else SOURCE_VALUE="$URL"; NORM_URL=$(normalize_url "$URL"); fi
-SOURCE_UUID=$(jq -r --arg url "$NORM_URL" '.sources[$url].uuid // empty' "$PROJECT_FILE")
+if [ -n "$SOURCE_FILE" ]; then SOURCE_VALUE=$(canonical_file "$SOURCE_FILE"); NORM_URL="$SOURCE_VALUE"; else SOURCE_VALUE="$URL"; NORM_URL=$(normalize_url "$URL"); fi
+SOURCE_UUID=$(cache_source_uuid "$NORM_URL" "$SOURCE_VALUE")
 SOURCES_JSON=$(all_sources) || die 'Не удалось получить sources'
 MERGED_IMPORTED=0; MERGED_UPDATED=0; merge_sources "$SOURCES_JSON" >/dev/null
-if [ -z "$SOURCE_UUID" ] && [ -z "$SOURCE_FILE" ]; then SOURCE_UUID=$(jq -r --arg url "$NORM_URL" '.items[] | select((.uri // "" | sub("^https?://";"") | sub("^www\\.";"") | sub("/+$";"") | ascii_downcase)==$url) | .uuid' <<<"$SOURCES_JSON" | head -n1); fi
+SOURCE_UUID=$(cache_source_uuid "$NORM_URL" "$SOURCE_VALUE")
+if [ -z "$SOURCE_UUID" ] && [ -z "$SOURCE_FILE" ]; then SOURCE_UUID=$(jq -r --arg url "$URL" '.items[] | select((.uri // .url // "") == $url) | .uuid' <<<"$SOURCES_JSON" | head -n1); fi
 if [ -z "$SOURCE_UUID" ]; then
  if [ -n "$SOURCE_FILE" ]; then
   info "Загружаю файл: $SOURCE_VALUE"; SOURCE_JSON=$(api_file "/projects/${PROJECT_UUID}/source-files" "$SOURCE_FILE") || die 'Не удалось загрузить файл'
  else
-  info "Загружаю: $URL"; SOURCE_JSON=$(api POST "/projects/${PROJECT_UUID}/source-urls" "$(jq -n --arg url "$URL" '{uri:$url}')") || die 'Не удалось загрузить source'
+  info "Загружаю: $URL"; SOURCE_JSON=$(api_json POST "/projects/${PROJECT_UUID}/source-urls" "$(jq -n --arg url "$URL" '{uri:$url}')") || die 'Не удалось загрузить source'
  fi
  SOURCE_UUID=$(jq -r '.sourceUuid // empty' <<<"$SOURCE_JSON"); [ -n "$SOURCE_UUID" ] || die 'Не удалось загрузить source'
  jq --arg url "$NORM_URL" --arg uuid "$SOURCE_UUID" --arg src_url "$SOURCE_VALUE" --arg date "$(date +%Y-%m-%d)" '.sources[$url]={uuid:$uuid,url:$src_url,title:"",status:"pending",last_used:$date}' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
@@ -150,5 +137,5 @@ for i in $(seq 1 120); do
  case "$STATUS" in ready) info "✓ Готов (попытка $i)"; break;; failed|error) die "Source в ошибке: $STATUS";; *) sleep 5;; esac
  [ "$i" -eq 120 ] && die "Source не готов за 120 попыток (~10 мин). Статус: $STATUS. Проверьте позже через --check."
 done
-DOCS_JSON=$(api GET "/projects/${PROJECT_UUID}/sources/${SOURCE_UUID}/documents") || die 'Не удалось получить documents'
+DOCS_JSON=$(api_json GET "/projects/${PROJECT_UUID}/sources/${SOURCE_UUID}/documents") || die 'Не удалось получить documents'
 echo "project_uuid=$PROJECT_UUID"; echo "source_uuid=$SOURCE_UUID"; echo "documents=$(jq '.items | length' <<<"$DOCS_JSON")"; echo "url=$SOURCE_VALUE"

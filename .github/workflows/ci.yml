@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check shell syntax
+        run: bash -n scripts/*.sh tests/*.sh
+      - name: Run offline tests
+        run: |
+          for test in tests/*.sh; do
+            echo "== $test"
+            bash "$test"
+          done
