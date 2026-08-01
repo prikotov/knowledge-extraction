@@ -93,6 +93,9 @@ Skill использует методы TasK API:
 # Загрузить материал
 ./scripts/ingest.sh --source-url https://habr.com/ru/articles/1061876/
 
+# Загрузить локальный файл (PDF, видео, аудио и т. п.)
+./scripts/ingest.sh --source-file "/path/to/video.mp4"
+
 # Начать диалог
 ./scripts/chat.sh --source-url https://habr.com/ru/articles/1061876/
 

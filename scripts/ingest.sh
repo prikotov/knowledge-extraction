@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ingest.sh — загружает URL в TasK, ждёт готовности и кеширует UUID.
-# Использование: ./ingest.sh --source-url <URL> [--project <UUID>]
+# Использование: ./ingest.sh (--source-url <URL> | --source-file <path>) [--project <UUID>]
 #               ./ingest.sh --check [--project <UUID>]
 set -euo pipefail
 
@@ -14,16 +14,20 @@ while [ "$ARTICLE_DIR" != / ] && [ ! -f "$ARTICLE_DIR/.task_project.json" ] && [
 [ -f "$ARTICLE_DIR/.task_token.json" ] || die ".task_token.json не найден. Создайте файл с access_token в корне проекта."
 TASK_API_TOKEN=$(jq -r '.access_token // empty' "$ARTICLE_DIR/.task_token.json")
 
-URL=""; PROJECT_UUID=""; CHECK_ONLY=false
+URL=""; SOURCE_FILE=""; PROJECT_UUID=""; CHECK_ONLY=false
 while [ $# -gt 0 ]; do
  case "$1" in
   --source-url) [ $# -ge 2 ] || die "Для --source-url нужен URL"; URL="$2"; shift 2 ;;
+  --source-file) [ $# -ge 2 ] || die "Для --source-file нужен путь"; SOURCE_FILE="$2"; shift 2 ;;
   --project) [ $# -ge 2 ] || die "Для --project нужен UUID"; PROJECT_UUID="$2"; shift 2 ;;
   --check) CHECK_ONLY=true; shift ;;
   *) die "Неизвестный аргумент: $1" ;;
  esac
 done
-! "$CHECK_ONLY" && [ -z "$URL" ] && die "--source-url обязателен (или --check для проверки статусов)"
+if [ -n "$URL" ] && [ -f "$URL" ] && [ -z "$SOURCE_FILE" ]; then SOURCE_FILE="$URL"; URL=""; fi
+[ -n "$SOURCE_FILE" ] && [ ! -f "$SOURCE_FILE" ] && die "Файл не найден: $SOURCE_FILE"
+[ -n "$URL" ] && [ -n "$SOURCE_FILE" ] && die "Укажите только --source-url или --source-file"
+! "$CHECK_ONLY" && [ -z "$URL" ] && [ -z "$SOURCE_FILE" ] && die "Нужен --source-url или --source-file (или --check)"
 
 # Successful response body goes to stdout. Every failure is safe diagnostic on stderr.
 api() {
@@ -43,6 +47,19 @@ api() {
  cat "$body"; rm -f "$body" "$headers"
 }
 normalize_url() { echo "$1" | sed -E 's|^https?://||; s|^www\.||; s|/+$||' | tr '[:upper:]' '[:lower:]'; }
+api_file() {
+ local path="$1" file="$2" body headers code rc detail
+ body=$(mktemp); headers=$(mktemp)
+ code=$(curl -sS -o "$body" -D "$headers" -w '%{http_code}' -X POST "${TASK_API_URL}${path}" -H "Authorization: Bearer $TASK_API_TOKEN" -F "file=@${file}" 2>/dev/null) || rc=$?
+ if [ "${rc:-0}" -ne 0 ] || [ "$code" = 000 ]; then rm -f "$body" "$headers"; echo 'TasK API request failed.' >&2; return 1; fi
+ if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then
+  detail=$(jq -r 'if type == "object" and (.detail | type == "string") then .detail else empty end' "$body" 2>/dev/null || true)
+  if [ -n "$detail" ]; then echo "HTTP $code: $detail" >&2; else echo "HTTP $code: TasK API returned an unexpected error." >&2; fi
+  rm -f "$body" "$headers"; return 1
+ fi
+ cat "$body"; rm -f "$body" "$headers"
+}
+normalize_file() { realpath -m "$1" | tr '[:upper:]' '[:lower:]'; }
 
 # Retrieves every API page. The endpoint's pagination.total is the stop condition.
 all_sources() {
@@ -111,15 +128,19 @@ if "$CHECK_ONLY"; then
  echo "Изменений: $((MERGED_UPDATED + MERGED_IMPORTED))"; exit 0
 fi
 
-NORM_URL=$(normalize_url "$URL")
+if [ -n "$SOURCE_FILE" ]; then SOURCE_VALUE=$(realpath -m "$SOURCE_FILE"); NORM_URL=$(normalize_file "$SOURCE_FILE"); else SOURCE_VALUE="$URL"; NORM_URL=$(normalize_url "$URL"); fi
 SOURCE_UUID=$(jq -r --arg url "$NORM_URL" '.sources[$url].uuid // empty' "$PROJECT_FILE")
 SOURCES_JSON=$(all_sources) || die 'Не удалось получить sources'
 MERGED_IMPORTED=0; MERGED_UPDATED=0; merge_sources "$SOURCES_JSON" >/dev/null
-if [ -z "$SOURCE_UUID" ]; then SOURCE_UUID=$(jq -r --arg url "$NORM_URL" '.items[] | select((.uri // "" | sub("^https?://";"") | sub("^www\\.";"") | sub("/+$";"") | ascii_downcase)==$url) | .uuid' <<<"$SOURCES_JSON" | head -n1); fi
+if [ -z "$SOURCE_UUID" ] && [ -z "$SOURCE_FILE" ]; then SOURCE_UUID=$(jq -r --arg url "$NORM_URL" '.items[] | select((.uri // "" | sub("^https?://";"") | sub("^www\\.";"") | sub("/+$";"") | ascii_downcase)==$url) | .uuid' <<<"$SOURCES_JSON" | head -n1); fi
 if [ -z "$SOURCE_UUID" ]; then
- info "Загружаю: $URL"; SOURCE_JSON=$(api POST "/projects/${PROJECT_UUID}/source-urls" "$(jq -n --arg url "$URL" '{uri:$url}')") || die 'Не удалось загрузить source'
+ if [ -n "$SOURCE_FILE" ]; then
+  info "Загружаю файл: $SOURCE_VALUE"; SOURCE_JSON=$(api_file "/projects/${PROJECT_UUID}/source-files" "$SOURCE_FILE") || die 'Не удалось загрузить файл'
+ else
+  info "Загружаю: $URL"; SOURCE_JSON=$(api POST "/projects/${PROJECT_UUID}/source-urls" "$(jq -n --arg url "$URL" '{uri:$url}')") || die 'Не удалось загрузить source'
+ fi
  SOURCE_UUID=$(jq -r '.sourceUuid // empty' <<<"$SOURCE_JSON"); [ -n "$SOURCE_UUID" ] || die 'Не удалось загрузить source'
- jq --arg url "$NORM_URL" --arg uuid "$SOURCE_UUID" --arg src_url "$URL" --arg date "$(date +%Y-%m-%d)" '.sources[$url]={uuid:$uuid,url:$src_url,title:"",status:"pending",last_used:$date}' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
+ jq --arg url "$NORM_URL" --arg uuid "$SOURCE_UUID" --arg src_url "$SOURCE_VALUE" --arg date "$(date +%Y-%m-%d)" '.sources[$url]={uuid:$uuid,url:$src_url,title:"",status:"pending",last_used:$date}' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
 fi
 info "Source: $SOURCE_UUID"
 info 'Ожидаю обработки…'
@@ -130,4 +151,4 @@ for i in $(seq 1 120); do
  [ "$i" -eq 120 ] && die "Source не готов за 120 попыток (~10 мин). Статус: $STATUS. Проверьте позже через --check."
 done
 DOCS_JSON=$(api GET "/projects/${PROJECT_UUID}/sources/${SOURCE_UUID}/documents") || die 'Не удалось получить documents'
-echo "project_uuid=$PROJECT_UUID"; echo "source_uuid=$SOURCE_UUID"; echo "documents=$(jq '.items | length' <<<"$DOCS_JSON")"; echo "url=$URL"
+echo "project_uuid=$PROJECT_UUID"; echo "source_uuid=$SOURCE_UUID"; echo "documents=$(jq '.items | length' <<<"$DOCS_JSON")"; echo "url=$SOURCE_VALUE"
