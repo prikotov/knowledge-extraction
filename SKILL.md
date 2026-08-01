@@ -10,16 +10,6 @@ description: >-
 
 # Knowledge Extraction
 
-## Предварительные условия
-
-- Убедись, что в корне рабочего проекта есть `.task_token.json` с непустым `access_token`.
-- `.task_config.json` — необязательная конфигурация скриптов Skill; сейчас он поддерживает
-  переопределение `{"api_url":"..."}`.
-- Требуются Bash, `curl`, `jq` и GNU `realpath`.
-
-Скрипты ищут рабочий корень вверх от `$PWD`. Для явного выбора задай
-`KNOWLEDGE_EXTRACTION_WORKSPACE=/path/to/project`.
-
 ## Как использовать
 
 ```text
