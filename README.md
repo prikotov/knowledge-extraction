@@ -104,6 +104,9 @@ Skill использует методы TasK API:
 
 # Проверить статус обработки
 ./scripts/ingest.sh --check
+
+# При ошибке API chat.sh завершится с ошибкой и напечатает, например:
+# HTTP 422: Need to top up balance.
 ```
 
 ## Безопасность
