@@ -11,8 +11,7 @@ description: >-
 
 ## Предварительные условия
 
-- Выполняй команды из рабочего каталога пользователя, не из каталога Skill.
-- Определи `SKILL_DIR` как каталог, содержащий этот `SKILL.md`.
+- Пути `scripts/...` ниже даны относительно корня Skill.
 - Убедись, что в корне рабочего проекта есть `.task_token.json` с непустым `access_token`.
 - `.task_config.json` — необязательная конфигурация скриптов Skill; сейчас он поддерживает
   переопределение `{"api_url":"..."}`.
@@ -32,13 +31,13 @@ ingest → chat   (поговорить с документом — приори
 
 ```bash
 # Загрузить один источник (ждёт готовности)
-"${SKILL_DIR}/scripts/ingest.sh" --source-url <URL>
+scripts/ingest.sh --source-url <URL>
 
 # Загрузить локальный файл (multipart/form-data)
-"${SKILL_DIR}/scripts/ingest.sh" --source-file "/path/to/video.mp4"
+scripts/ingest.sh --source-file "/path/to/video.mp4"
 
 # Проверить статусы всех источников (без ожидания)
-"${SKILL_DIR}/scripts/ingest.sh" --check
+scripts/ingest.sh --check
 ```
 
 Опции:
@@ -62,16 +61,16 @@ YouTube обрабатывается дольше — транскрибация
 
 ```bash
 # Новый диалог — вернёт chat_uuid=... первой строкой
-"${SKILL_DIR}/scripts/chat.sh" --source <UUID>
+scripts/chat.sh --source <UUID>
 
 # Или с несколькими источниками
-"${SKILL_DIR}/scripts/chat.sh" --source <UUID1> --source <UUID2>
+scripts/chat.sh --source <UUID1> --source <UUID2>
 
 # Или без источников — используются все source'ы проекта
-"${SKILL_DIR}/scripts/chat.sh"
+scripts/chat.sh
 
 # Продолжить диалог — указать chat_uuid из вывода предыдущего вызова
-"${SKILL_DIR}/scripts/chat.sh" --chat <UUID> --question "..."
+scripts/chat.sh --chat <UUID> --question "..."
 ```
 
 Опции:
@@ -87,9 +86,9 @@ YouTube обрабатывается дольше — транскрибация
 
 Агент ведёт диалог, а не кидает все вопросы разом:
 
-1. `"${SKILL_DIR}/scripts/chat.sh" --source-url ... --title "Дороничев — прыжок веры"` — первый вопрос с осмысленным именем чата
+1. `scripts/chat.sh --source-url ... --title "Дороничев — прыжок веры"` — первый вопрос с осмысленным именем чата
 2. Читает ответ, видит пробелы или интересные нити
-3. `"${SKILL_DIR}/scripts/chat.sh" --chat <UUID> --question "..."` — уточняющий вопрос в том же чате
+3. `scripts/chat.sh --chat <UUID> --question "..."` — уточняющий вопрос в том же чате
 4. Повторяет, пока не извлечёт нужное
 
 **Не создавай новый чат без необходимости.** Если диалог уже начат — продолжай его через `--chat <UUID>`. Новый чат — только для нового материала или новой темы.
@@ -116,10 +115,10 @@ YouTube обрабатывается дольше — транскрибация
 
 ```bash
 # Один запрос — один вызов
-"${SKILL_DIR}/scripts/search.sh" --source <UUID> --query "запрос"
+scripts/search.sh --source <UUID> --query "запрос"
 
 # Прочитал результат, видишь пробел — следующий запрос
-"${SKILL_DIR}/scripts/search.sh" --source <UUID> --query "уточняющий запрос"
+scripts/search.sh --source <UUID> --query "уточняющий запрос"
 ```
 
 Опции:
@@ -133,9 +132,9 @@ YouTube обрабатывается дольше — транскрибация
 
 Агент ведёт поиск итеративно, как диалог:
 
-1. `"${SKILL_DIR}/scripts/search.sh" --query "основной тезис"` — первый запрос
+1. `scripts/search.sh --query "основной тезис"` — первый запрос
 2. Читает чанки, видит пробелы
-3. `"${SKILL_DIR}/scripts/search.sh" --query "уточнение по теме X"` — следующий запрос
+3. `scripts/search.sh --query "уточнение по теме X"` — следующий запрос
 4. Повторяет, пока не соберёт достаточно фактов
 
 ### Шаг 3: Оформить результат
@@ -160,13 +159,13 @@ YouTube обрабатывается дольше — транскрибация
 
 ```bash
 # 1. Загрузить
-"${SKILL_DIR}/scripts/ingest.sh" --source-url "https://habr.com/ru/articles/1061876/"
+scripts/ingest.sh --source-url "https://habr.com/ru/articles/1061876/"
 
 # 2. Начать диалог (вернёт chat_uuid=...)
-"${SKILL_DIR}/scripts/chat.sh" --source-url "https://habr.com/ru/articles/1061876/"
+scripts/chat.sh --source-url "https://habr.com/ru/articles/1061876/"
 
 # 3. Уточнить
-"${SKILL_DIR}/scripts/chat.sh" --chat <UUID> --question "Какие 4 убеждения разбирает автор?"
+scripts/chat.sh --chat <UUID> --question "Какие 4 убеждения разбирает автор?"
 
 # 4. Оформить подтверждённый материалом ответ
 ```
@@ -174,19 +173,19 @@ YouTube обрабатывается дольше — транскрибация
 **Диалог:**
 
 ```bash
-"${SKILL_DIR}/scripts/ingest.sh" --source-url "https://habr.com/ru/articles/1061876/"
-"${SKILL_DIR}/scripts/chat.sh" --source-url "https://habr.com/ru/articles/1061876/"
+scripts/ingest.sh --source-url "https://habr.com/ru/articles/1061876/"
+scripts/chat.sh --source-url "https://habr.com/ru/articles/1061876/"
 # → читаем ответ, задаём уточняющие вопросы через --chat <UUID>
 ```
 
 **Поиск чанков (запасной режим):**
 
 ```bash
-"${SKILL_DIR}/scripts/search.sh" --source-url "https://habr.com/ru/articles/1061876/" \
+scripts/search.sh --source-url "https://habr.com/ru/articles/1061876/" \
   --query "теория локуса контроля Роттера"
 
 # → читаем чанки, видим что не раскрыта тема таланта
-"${SKILL_DIR}/scripts/search.sh" --source-url "https://habr.com/ru/articles/1061876/" \
+scripts/search.sh --source-url "https://habr.com/ru/articles/1061876/" \
   --query "талант врождённый или приобретённый"
 ```
 
@@ -207,7 +206,7 @@ YouTube обрабатывается дольше — транскрибация
 - Без ожидания — `ingest.sh --check` сверяет кеш с API и показывает изменения
 
 ```bash
-$ "${SKILL_DIR}/scripts/ingest.sh" --check
+$ scripts/ingest.sh --check
 youtube.com/watch?v=... → processing ✦
 github.com/.../wsff.md → ready
 Изменений: 1

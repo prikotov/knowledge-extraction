@@ -101,27 +101,33 @@ Skill использует методы TasK API:
 
 ### Напрямую через скрипты
 
+После установки, показанной выше, перейдите в каталог Skill:
+
 ```bash
-# Каталог установленного Skill; команды выполняются из рабочего проекта
-KE_SKILL=".agents/skills/knowledge-extraction"
+cd .agents/skills/knowledge-extraction
+```
+
+Пути к скриптам ниже относительны к корню Skill:
+
+```bash
 
 # Загрузить материал
-"$KE_SKILL/scripts/ingest.sh" --source-url https://habr.com/ru/articles/1061876/
+./scripts/ingest.sh --source-url https://habr.com/ru/articles/1061876/
 
 # Загрузить локальный файл (PDF, видео, аудио и т. п.)
-"$KE_SKILL/scripts/ingest.sh" --source-file "/path/to/video.mp4"
+./scripts/ingest.sh --source-file "/path/to/video.mp4"
 
 # Начать диалог
-"$KE_SKILL/scripts/chat.sh" --source-url https://habr.com/ru/articles/1061876/
+./scripts/chat.sh --source-url https://habr.com/ru/articles/1061876/
 
 # Продолжить диалог
-"$KE_SKILL/scripts/chat.sh" --chat <UUID> --question "Какие убеждения разбирает автор?"
+./scripts/chat.sh --chat <UUID> --question "Какие убеждения разбирает автор?"
 
 # Поиск по чанкам
-"$KE_SKILL/scripts/search.sh" --source-url https://habr.com/ru/articles/1061876/ --query "локус контроля"
+./scripts/search.sh --source-url https://habr.com/ru/articles/1061876/ --query "локус контроля"
 
 # Проверить статус обработки
-"$KE_SKILL/scripts/ingest.sh" --check
+./scripts/ingest.sh --check
 
 # При ошибке API chat.sh завершится с ошибкой и напечатает, например:
 # HTTP 422: Need to top up balance.
