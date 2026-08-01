@@ -10,7 +10,7 @@
 
 ## Зависимости
 
-Требует доступ к [TasK API](https://task.ai-aid.pro) ([документация](https://docs.ai-aid.pro/redocly)). Для получения доступа — [напишите команде](https://task.ai-aid.pro/ru/team).
+Требует `bash`, `curl`, `jq`, GNU `realpath` и доступ к [TasK API](https://task.ai-aid.pro) ([документация](https://docs.ai-aid.pro/redocly)). Для получения доступа — [напишите команде](https://task.ai-aid.pro/ru/team).
 
 ## Установка
 
@@ -28,7 +28,19 @@ git clone https://github.com/prikotov/knowledge-extraction.git .agents/skills/kn
 }
 ```
 
-Скрипты ищут его, поднимаясь от своего расположения вверх по дереву папок до первого совпадения.
+Разместите `.task_token.json` в рабочем проекте, из которого запускаете Skill.
+Скрипты используют текущий каталог (`$PWD`) как начальную точку и ищут токен
+в нём и родительских каталогах. Для явного выбора каталога можно задать
+`KNOWLEDGE_EXTRACTION_WORKSPACE=/path/to/project`.
+
+Необязательный `.task_config.json` — конфигурация Skill. Сейчас он поддерживает
+переопределение адреса API:
+
+```json
+{
+  "api_url": "https://api.ai-aid.pro/v1"
+}
+```
 
 ## Как работает
 
@@ -89,24 +101,28 @@ Skill использует методы TasK API:
 
 ### Напрямую через скрипты
 
+Команды выполняются из корня рабочего проекта. После установки, показанной выше,
+путь к скриптам будет `.agents/skills/knowledge-extraction/scripts/`:
+
 ```bash
+
 # Загрузить материал
-./scripts/ingest.sh --source-url https://habr.com/ru/articles/1061876/
+.agents/skills/knowledge-extraction/scripts/ingest.sh --source-url https://habr.com/ru/articles/1061876/
 
 # Загрузить локальный файл (PDF, видео, аудио и т. п.)
-./scripts/ingest.sh --source-file "/path/to/video.mp4"
+.agents/skills/knowledge-extraction/scripts/ingest.sh --source-file "/path/to/video.mp4"
 
 # Начать диалог
-./scripts/chat.sh --source-url https://habr.com/ru/articles/1061876/
+.agents/skills/knowledge-extraction/scripts/chat.sh --source-url https://habr.com/ru/articles/1061876/
 
 # Продолжить диалог
-./scripts/chat.sh --chat <UUID> --question "Какие убеждения разбирает автор?"
+.agents/skills/knowledge-extraction/scripts/chat.sh --chat <UUID> --question "Какие убеждения разбирает автор?"
 
 # Поиск по чанкам
-./scripts/search.sh --source-url https://habr.com/ru/articles/1061876/ --query "локус контроля"
+.agents/skills/knowledge-extraction/scripts/search.sh --source-url https://habr.com/ru/articles/1061876/ --query "локус контроля"
 
 # Проверить статус обработки
-./scripts/ingest.sh --check
+.agents/skills/knowledge-extraction/scripts/ingest.sh --check
 
 # При ошибке API chat.sh завершится с ошибкой и напечатает, например:
 # HTTP 422: Need to top up balance.
@@ -121,7 +137,3 @@ Skill использует методы TasK API:
 ## Лицензия
 
 MIT
-
----
-
-> Постановка задачи, ревью — [Dmitry Prikotov](https://prikotov.pro/), реализация — deepseek-v4-pro в [pi](https://pi.dev) (интересно было посмотреть как deepseek-v4-pro справится с написанием скила, я страдал)

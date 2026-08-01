@@ -29,19 +29,19 @@ PY
 start() { MODE="$1" python3 "$TMP/server.py" > "$PORT_FILE" & SERVER_PID=$!; for _ in $(seq 1 20); do [ -s "$PORT_FILE" ] && break; sleep .05; done; PORT=$(cat "$PORT_FILE"); }
 stop() { kill "$SERVER_PID"; wait "$SERVER_PID" 2>/dev/null || true; unset SERVER_PID; : > "$PORT_FILE"; }
 start ok
-TASK_API_URL="http://127.0.0.1:$PORT/v1" "$TMP/scripts/ingest.sh" --check --project p > "$TMP/check.out"
+(cd "$TMP" && TASK_API_URL="http://127.0.0.1:$PORT/v1" ./scripts/ingest.sh --check --project p > "$TMP/check.out")
 jq -e '(.sources | length == 2 and ([.[] | .uuid] | sort == ["u1","u2"])) and .sources.old.note == "keep" and .sources.old.status == "ready"' "$TMP/.task_project.json" >/dev/null
 grep -q 'импортирован из API' "$TMP/check.out"
 stop
-if TASK_API_URL="http://127.0.0.1:1/v1" "$TMP/scripts/chat.sh" --chat c --question q >"$TMP/out" 2>"$TMP/err"; then echo 'transport unexpectedly succeeded' >&2; exit 1; fi
+if (cd "$TMP" && TASK_API_URL="http://127.0.0.1:1/v1" ./scripts/chat.sh --chat c --question q >"$TMP/out" 2>"$TMP/err"); then echo 'transport unexpectedly succeeded' >&2; exit 1; fi
 grep -q 'TasK API request failed.' "$TMP/err"
 for mode in 422 500 badtype; do
  start "$mode"
- if TASK_API_URL="http://127.0.0.1:$PORT/v1" "$TMP/scripts/chat.sh" --chat c --question q >"$TMP/out" 2>"$TMP/err"; then echo "$mode unexpectedly succeeded" >&2; exit 1; fi
+ if (cd "$TMP" && TASK_API_URL="http://127.0.0.1:$PORT/v1" ./scripts/chat.sh --chat c --question q >"$TMP/out" 2>"$TMP/err"); then echo "$mode unexpectedly succeeded" >&2; exit 1; fi
  case "$mode" in 422) grep -q 'HTTP 422: Need to top up balance.' "$TMP/err";; 500) grep -q 'HTTP 500: TasK API returned an unexpected error.' "$TMP/err";; badtype) grep -q 'unexpected response type' "$TMP/err";; esac
  stop
 done
 start ok
-TASK_API_URL="http://127.0.0.1:$PORT/v1" "$TMP/scripts/chat.sh" --chat c --question q > "$TMP/out"
+(cd "$TMP" && TASK_API_URL="http://127.0.0.1:$PORT/v1" ./scripts/chat.sh --chat c --question q > "$TMP/out")
 grep -q Hello "$TMP/out"
 echo 'api-client-resilience: ok'
