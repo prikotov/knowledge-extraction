@@ -101,33 +101,28 @@ Skill использует методы TasK API:
 
 ### Напрямую через скрипты
 
-После установки, показанной выше, перейдите в каталог Skill:
-
-```bash
-cd .agents/skills/knowledge-extraction
-```
-
-Пути к скриптам ниже относительны к корню Skill:
+Команды выполняются из корня рабочего проекта. После установки, показанной выше,
+путь к скриптам будет `.agents/skills/knowledge-extraction/scripts/`:
 
 ```bash
 
 # Загрузить материал
-./scripts/ingest.sh --source-url https://habr.com/ru/articles/1061876/
+.agents/skills/knowledge-extraction/scripts/ingest.sh --source-url https://habr.com/ru/articles/1061876/
 
 # Загрузить локальный файл (PDF, видео, аудио и т. п.)
-./scripts/ingest.sh --source-file "/path/to/video.mp4"
+.agents/skills/knowledge-extraction/scripts/ingest.sh --source-file "/path/to/video.mp4"
 
 # Начать диалог
-./scripts/chat.sh --source-url https://habr.com/ru/articles/1061876/
+.agents/skills/knowledge-extraction/scripts/chat.sh --source-url https://habr.com/ru/articles/1061876/
 
 # Продолжить диалог
-./scripts/chat.sh --chat <UUID> --question "Какие убеждения разбирает автор?"
+.agents/skills/knowledge-extraction/scripts/chat.sh --chat <UUID> --question "Какие убеждения разбирает автор?"
 
 # Поиск по чанкам
-./scripts/search.sh --source-url https://habr.com/ru/articles/1061876/ --query "локус контроля"
+.agents/skills/knowledge-extraction/scripts/search.sh --source-url https://habr.com/ru/articles/1061876/ --query "локус контроля"
 
 # Проверить статус обработки
-./scripts/ingest.sh --check
+.agents/skills/knowledge-extraction/scripts/ingest.sh --check
 
 # При ошибке API chat.sh завершится с ошибкой и напечатает, например:
 # HTTP 422: Need to top up balance.
