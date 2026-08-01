@@ -10,7 +10,7 @@
 
 ## Зависимости
 
-Требует Bash, `curl`, `jq`, GNU `realpath` и доступ к [TasK API](https://task.ai-aid.pro) ([документация](https://docs.ai-aid.pro/redocly)). Для получения доступа — [напишите команде](https://task.ai-aid.pro/ru/team).
+Требует Bash, `curl`, `jq`, GNU-версию `realpath` и доступ к [TasK API](https://task.ai-aid.pro) ([документация](https://docs.ai-aid.pro/redocly)). Для получения доступа — [напишите команде](https://task.ai-aid.pro/ru/team).
 
 ## Установка
 
