@@ -27,7 +27,7 @@ if [ -n "$URL" ] && [ -f "$URL" ] && [ -z "$SOURCE_FILE" ]; then SOURCE_FILE="$U
 api_file() {
  local path="$1" file="$2" body headers code rc detail
  body=$(mktemp); headers=$(mktemp)
- code=$(curl -sS -o "$body" -D "$headers" -w '%{http_code}' -X POST "${TASK_API_URL}${path}" -H "Authorization: Bearer $TASK_API_TOKEN" -F "file=@${file}" 2>/dev/null) || rc=$?
+ code=$(curl -sS --connect-timeout 10 --max-time 600 -o "$body" -D "$headers" -w '%{http_code}' -X POST "${TASK_API_URL}${path}" -H "Authorization: Bearer $TASK_API_TOKEN" -F "file=@${file}" 2>/dev/null) || rc=$?
  if [ "${rc:-0}" -ne 0 ] || [ "$code" = 000 ]; then rm -f "$body" "$headers"; echo 'TasK API request failed.' >&2; return 1; fi
  if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then
   detail=$(jq -r 'if type == "object" and (.detail | type == "string") then .detail else empty end' "$body" 2>/dev/null || true)
@@ -79,7 +79,8 @@ else
  fi
  jq --arg uuid "$PROJECT_UUID" '.uuid=$uuid' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
 fi
-info "Project: $PROJECT_UUID"
+info "Проект: $PROJECT_TITLE ($PROJECT_UUID)"
+info "Рабочий каталог: $ARTICLE_DIR"
 
 # Merge by UUID. API fields only create missing records; existing custom fields survive.
 merge_sources() {
@@ -135,7 +136,11 @@ for i in $(seq 1 120); do
  SOURCES_JSON=$(all_sources) || die 'Не удалось получить status source'; STATUS=$(jq -r --arg u "$SOURCE_UUID" '.items[] | select(.uuid==$u) | .status // "processing"' <<<"$SOURCES_JSON" | head -n1)
  jq --arg u "$SOURCE_UUID" --arg s "$STATUS" '.sources |= with_entries(if .value.uuid == $u then .value.status = $s else . end)' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
  case "$STATUS" in ready) info "✓ Готов (попытка $i)"; break;; failed|error) die "Source в ошибке: $STATUS";; *) sleep 5;; esac
- [ "$i" -eq 120 ] && die "Source не готов за 120 попыток (~10 мин). Статус: $STATUS. Проверьте позже через --check."
+ [ "$i" -eq 120 ] && die "Source не готов за ~10 мин (статус: $STATUS). НЕ перезапускайте ingest с тем же URL — источник уже в очереди. Работайте с другими источниками или проверьте статус позже: ingest.sh --check"
 done
 DOCS_JSON=$(api_json GET "/projects/${PROJECT_UUID}/sources/${SOURCE_UUID}/documents") || die 'Не удалось получить documents'
-echo "project_uuid=$PROJECT_UUID"; echo "source_uuid=$SOURCE_UUID"; echo "documents=$(jq '.items | length' <<<"$DOCS_JSON")"; echo "url=$SOURCE_VALUE"
+DOC_COUNT=$(jq '.items | length' <<<"$DOCS_JSON")
+if [ "$DOC_COUNT" -eq 0 ]; then
+ warn "documents=0: источник пустой — чат и поиск по нему ничего не вернут. Сайт мог не проиндексироваться. Проверьте доступность URL и попробуйте загрузить позже или используйте другой источник."
+fi
+echo "project_uuid=$PROJECT_UUID"; echo "source_uuid=$SOURCE_UUID"; echo "documents=$DOC_COUNT"; echo "url=$SOURCE_VALUE"
