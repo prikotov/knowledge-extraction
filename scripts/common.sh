@@ -73,11 +73,11 @@ api_json() {
   local method="$1" path="$2" data="${3:-}" body headers code rc=0 detail
   body=$(mktemp); headers=$(mktemp)
   if [ -n "$data" ]; then
-    code=$(curl -sS -o "$body" -D "$headers" -w '%{http_code}' -X "$method" \
+    code=$(curl -sS --connect-timeout 10 --max-time 60 -o "$body" -D "$headers" -w '%{http_code}' -X "$method" \
       "${TASK_API_URL}${path}" -H 'Content-Type: application/json' \
       -H "Authorization: Bearer $TASK_API_TOKEN" -d "$data" 2>/dev/null) || rc=$?
   else
-    code=$(curl -sS -o "$body" -D "$headers" -w '%{http_code}' -X "$method" \
+    code=$(curl -sS --connect-timeout 10 --max-time 60 -o "$body" -D "$headers" -w '%{http_code}' -X "$method" \
       "${TASK_API_URL}${path}" -H 'Content-Type: application/json' \
       -H "Authorization: Bearer $TASK_API_TOKEN" 2>/dev/null) || rc=$?
   fi
