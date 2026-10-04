@@ -121,6 +121,10 @@ Skill использует методы TasK API:
 # Поиск по чанкам
 .agents/skills/knowledge-extraction/scripts/search.sh --source-url https://habr.com/ru/articles/1061876/ --query "локус контроля"
 
+# Отдельный проект под конкретный ресёрч (чтобы не смешивать источники)
+.agents/skills/knowledge-extraction/scripts/ingest.sh --project-name sdd-research --source-url ...
+.agents/skills/knowledge-extraction/scripts/chat.sh --project-name sdd-research
+
 # Проверить статус обработки
 .agents/skills/knowledge-extraction/scripts/ingest.sh --check
 

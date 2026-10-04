@@ -9,12 +9,13 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 load_task_environment
 
-URL=""; SOURCE_FILE=""; PROJECT_UUID=""; CHECK_ONLY=false
+URL=""; SOURCE_FILE=""; PROJECT_UUID=""; PROJECT_NAME_ARG=""; CHECK_ONLY=false
 while [ $# -gt 0 ]; do
  case "$1" in
   --source-url) [ $# -ge 2 ] || die "Для --source-url нужен URL"; URL="$2"; shift 2 ;;
   --source-file) [ $# -ge 2 ] || die "Для --source-file нужен путь"; SOURCE_FILE="$2"; shift 2 ;;
   --project) [ $# -ge 2 ] || die "Для --project нужен UUID"; PROJECT_UUID="$2"; shift 2 ;;
+  --project-name) [ $# -ge 2 ] || die "Для --project-name нужно имя"; PROJECT_NAME_ARG="$2"; shift 2 ;;
   --check) CHECK_ONLY=true; shift ;;
   *) die "Неизвестный аргумент: $1" ;;
  esac
@@ -55,17 +56,19 @@ all_sources() {
 
 "$CHECK_ONLY" && [ ! -f "$PROJECT_FILE" ] && [ -z "$PROJECT_UUID" ] \
   && die "Для --check нужен существующий .task_project.json или --project"
+state_migrate "$PROJECT_FILE"
+PROJECT_NAME=$(resolve_project_name "$PROJECT_NAME_ARG")
 api_json GET '/projects' >/dev/null || die 'TasK API недоступен'
-[ -f "$PROJECT_FILE" ] || echo '{"uuid":"","sources":{}}' > "$PROJECT_FILE"
-CACHED_PROJECT_UUID=$(jq -r '.uuid // empty' "$PROJECT_FILE")
+[ -f "$PROJECT_FILE" ] || echo '{"active":"","projects":{}}' > "$PROJECT_FILE"
+CACHED_PROJECT_UUID=$(jq -r --arg n "$PROJECT_NAME" '.projects[$n].uuid // empty' "$PROJECT_FILE")
 if [ -n "$PROJECT_UUID" ] && [ -n "$CACHED_PROJECT_UUID" ] && [ "$PROJECT_UUID" != "$CACHED_PROJECT_UUID" ]; then
- die "--project не совпадает с UUID в .task_project.json"
+ die "--project не совпадает с UUID проекта «$PROJECT_NAME» в .task_project.json"
 fi
 [ -z "$PROJECT_UUID" ] && PROJECT_UUID="$CACHED_PROJECT_UUID"
 "$CHECK_ONLY" && [ -z "$PROJECT_UUID" ] && die "Для --check нужен существующий .task_project.json или --project"
-PROJECT_TITLE=$(basename "$ARTICLE_DIR")
+if [ "$PROJECT_NAME" = "default" ]; then PROJECT_TITLE=$(basename "$ARTICLE_DIR"); else PROJECT_TITLE="$PROJECT_NAME"; fi
 if [ -n "$PROJECT_UUID" ]; then
- jq --arg uuid "$PROJECT_UUID" '.uuid=$uuid' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
+ jq --arg n "$PROJECT_NAME" --arg uuid "$PROJECT_UUID" '(.projects[$n].sources //= {}) | .projects[$n].uuid=$uuid | .active=$n' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
 else
  info "Создаю проект: $PROJECT_TITLE"
  PROJECT_JSON=$(api_json POST '/projects' "$(jq -n --arg title "$PROJECT_TITLE" '{title:$title,description:"Материалы для извлечения знаний"}')") \
@@ -77,7 +80,7 @@ else
   PROJECT_UUID=$(jq -r --arg t "$PROJECT_TITLE" '.items[] | select(.title==$t) | .uuid // empty' <<<"$PROJECTS_JSON" | head -n1)
   [ -n "$PROJECT_UUID" ] || die 'TasK API не вернул UUID созданного проекта'
  fi
- jq --arg uuid "$PROJECT_UUID" '.uuid=$uuid' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
+ jq --arg n "$PROJECT_NAME" --arg uuid "$PROJECT_UUID" '(.projects[$n].sources //= {}) | .projects[$n].uuid=$uuid | .active=$n' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
 fi
 info "Проект: $PROJECT_TITLE ($PROJECT_UUID)"
 info "Рабочий каталог: $ARTICLE_DIR"
@@ -88,18 +91,18 @@ merge_sources() {
  while IFS= read -r encoded; do
   [ -n "$encoded" ] || continue
   uuid=$(printf %s "$encoded" | base64 -d | jq -r '.uuid // empty'); [ -n "$uuid" ] || continue
-  uri=$(printf %s "$encoded" | base64 -d | jq -r '.uri // .url // ""'); title=$(printf %s "$encoded" | base64 -d | jq -r '.title // ""'); status=$(printf %s "$encoded" | base64 -d | jq -r '.status // "unknown"')
-  existing=$(jq -r --arg u "$uuid" '.sources | to_entries[]? | select(.value.uuid==$u) | .key' "$PROJECT_FILE" | head -n1)
+  uri=$(printf %s "$encoded" | base64 -d | jq -r '.uri // .url // ""'); title=$(printf %s "$encoded" | base64 -d | jq -r '.title // ""'); status=$(printf %s "$encoded" | base64 -d | jq -r '.preparationStatus // .status // "unknown"')
+  existing=$(jq -r --arg n "$PROJECT_NAME" --arg u "$uuid" '(.projects[$n].sources // {}) | to_entries[]? | select(.value.uuid==$u) | .key' "$PROJECT_FILE" | head -n1)
   if [ -n "$existing" ]; then
-   old_status=$(jq -r --arg k "$existing" '.sources[$k].status // "unknown"' "$PROJECT_FILE")
-   jq --arg k "$existing" --arg s "$status" '.sources[$k].status=$s' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
+   old_status=$(jq -r --arg n "$PROJECT_NAME" --arg k "$existing" '.projects[$n].sources[$k].status // "unknown"' "$PROJECT_FILE")
+   jq --arg n "$PROJECT_NAME" --arg k "$existing" --arg s "$status" '.projects[$n].sources[$k].status=$s' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
    if [ "$old_status" != "$status" ]; then echo "$existing → $status (был: $old_status) ✦"; updated=$((updated + 1)); fi
   else
    key_base=$(normalize_url "$uri"); key="$key_base"
    [ -n "$key" ] || key="$uuid"
-   if jq -e --arg k "$key" '.sources[$k] != null' "$PROJECT_FILE" >/dev/null; then key="${key_base}#${uuid}"; fi
-   jq --arg k "$key" --arg u "$uuid" --arg url "$uri" --arg title "$title" --arg status "$status" --arg date "$(date +%Y-%m-%d)" \
-    '.sources[$k]={uuid:$u,url:$url,title:$title,status:$status,last_used:$date}' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
+   if jq -e --arg n "$PROJECT_NAME" --arg k "$key" '.projects[$n].sources[$k] != null' "$PROJECT_FILE" >/dev/null; then key="${key_base}#${uuid}"; fi
+   jq --arg n "$PROJECT_NAME" --arg k "$key" --arg u "$uuid" --arg url "$uri" --arg title "$title" --arg status "$status" --arg date "$(date +%Y-%m-%d)" \
+    '.projects[$n].sources[$k]={uuid:$u,url:$url,title:$title,status:$status,last_used:$date}' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
    echo "$key → $status (импортирован из API)"; imported=$((imported + 1))
   fi
  done < <(jq -r '.items[] | @base64' <<<"$sources")
@@ -111,7 +114,7 @@ if "$CHECK_ONLY"; then
  info 'Синхронизирую sources и проверяю статусы…'; SOURCES_JSON=$(all_sources) || die 'Не удалось получить sources'
  MERGED_IMPORTED=0; MERGED_UPDATED=0; merge_sources "$SOURCES_JSON"
  # Statuses are already merged; print every cached record, including API imports.
- jq -r '.sources | to_entries[] | "\(.key) → \(.value.status // "unknown")"' "$PROJECT_FILE"
+ jq -r --arg n "$PROJECT_NAME" '.projects[$n].sources | to_entries[] | "\(.key) → \(.value.status // "unknown")"' "$PROJECT_FILE"
  echo "Изменений: $((MERGED_UPDATED + MERGED_IMPORTED))"; exit 0
 fi
 
@@ -128,13 +131,13 @@ if [ -z "$SOURCE_UUID" ]; then
   info "Загружаю: $URL"; SOURCE_JSON=$(api_json POST "/projects/${PROJECT_UUID}/source-urls" "$(jq -n --arg url "$URL" '{uri:$url}')") || die 'Не удалось загрузить source'
  fi
  SOURCE_UUID=$(jq -r '.sourceUuid // empty' <<<"$SOURCE_JSON"); [ -n "$SOURCE_UUID" ] || die 'Не удалось загрузить source'
- jq --arg url "$NORM_URL" --arg uuid "$SOURCE_UUID" --arg src_url "$SOURCE_VALUE" --arg date "$(date +%Y-%m-%d)" '.sources[$url]={uuid:$uuid,url:$src_url,title:"",status:"pending",last_used:$date}' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
+ jq --arg n "$PROJECT_NAME" --arg url "$NORM_URL" --arg uuid "$SOURCE_UUID" --arg src_url "$SOURCE_VALUE" --arg date "$(date +%Y-%m-%d)" '.projects[$n].sources[$url]={uuid:$uuid,url:$src_url,title:"",status:"pending",last_used:$date}' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
 fi
 info "Source: $SOURCE_UUID"
 info 'Ожидаю обработки…'
 for i in $(seq 1 120); do
- SOURCES_JSON=$(all_sources) || die 'Не удалось получить status source'; STATUS=$(jq -r --arg u "$SOURCE_UUID" '.items[] | select(.uuid==$u) | .status // "processing"' <<<"$SOURCES_JSON" | head -n1)
- jq --arg u "$SOURCE_UUID" --arg s "$STATUS" '.sources |= with_entries(if .value.uuid == $u then .value.status = $s else . end)' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
+ SOURCES_JSON=$(all_sources) || die 'Не удалось получить status source'; STATUS=$(jq -r --arg u "$SOURCE_UUID" '.items[] | select(.uuid==$u) | (.preparationStatus // .status) // "processing"' <<<"$SOURCES_JSON" | head -n1)
+ jq --arg n "$PROJECT_NAME" --arg u "$SOURCE_UUID" --arg s "$STATUS" '.projects[$n].sources |= with_entries(if .value.uuid == $u then .value.status = $s else . end)' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
  case "$STATUS" in ready) info "✓ Готов (попытка $i)"; break;; failed|error) die "Source в ошибке: $STATUS";; *) sleep 5;; esac
  [ "$i" -eq 120 ] && die "Source не готов за ~10 мин (статус: $STATUS). НЕ перезапускайте ingest с тем же URL — источник уже в очереди. Работайте с другими источниками или проверьте статус позже: ingest.sh --check"
 done

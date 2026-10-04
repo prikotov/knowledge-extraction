@@ -16,7 +16,7 @@ class H(BaseHTTPRequestHandler):
  def do_GET(self):
   if self.path == '/v1/projects': return self.reply(200,'{"items":[]}')
   if '/sources?' in self.path:
-   offset=int(self.path.split('offset=')[1]); items=[{'uuid':'u1','uri':'https://same.example/a','title':'One','status':'ready'},{'uuid':'u2','uri':'https://same.example/a','title':'Two','status':'processing'}]
+   offset=int(self.path.split('offset=')[1]); items=[{'uuid':'u1','uri':'https://same.example/a','title':'One','preparationStatus':'ready'},{'uuid':'u2','uri':'https://same.example/a','title':'Two','preparationStatus':'processing'}]
    return self.reply(200,json.dumps({'items':items[offset:offset+1],'pagination':{'total':2}}))
   return self.reply(200,'{"items":[]}')
  def do_POST(self):
@@ -30,7 +30,7 @@ start() { MODE="$1" python3 "$TMP/server.py" > "$PORT_FILE" & SERVER_PID=$!; for
 stop() { kill "$SERVER_PID"; wait "$SERVER_PID" 2>/dev/null || true; unset SERVER_PID; : > "$PORT_FILE"; }
 start ok
 (cd "$TMP" && TASK_API_URL="http://127.0.0.1:$PORT/v1" ./scripts/ingest.sh --check --project p > "$TMP/check.out")
-jq -e '(.sources | length == 2 and ([.[] | .uuid] | sort == ["u1","u2"])) and .sources.old.note == "keep" and .sources.old.status == "ready"' "$TMP/.task_project.json" >/dev/null
+jq -e '(.projects.default.sources | length == 2 and ([.[] | .uuid] | sort == ["u1","u2"])) and .projects.default.sources.old.note == "keep" and .projects.default.sources.old.status == "ready"' "$TMP/.task_project.json" >/dev/null
 grep -q 'импортирован из API' "$TMP/check.out"
 stop
 if (cd "$TMP" && TASK_API_URL="http://127.0.0.1:1/v1" ./scripts/chat.sh --chat c --question q >"$TMP/out" 2>"$TMP/err"); then echo 'transport unexpectedly succeeded' >&2; exit 1; fi

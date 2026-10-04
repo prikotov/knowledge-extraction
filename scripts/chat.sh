@@ -22,6 +22,7 @@ load_task_environment
 URL=""
 SOURCE_UUIDS=()
 PROJECT_UUID=""
+PROJECT_NAME_ARG=""
 QUESTION=""
 CHAT_UUID=""
 TITLE=""
@@ -31,6 +32,7 @@ while [ $# -gt 0 ]; do
     --source-url) [ $# -ge 2 ] || die "Для --source-url нужен URL"; URL="$2"; shift 2 ;;
     --source)     [ $# -ge 2 ] || die "Для --source нужен UUID"; SOURCE_UUIDS+=("$2"); shift 2 ;;
     --project)    [ $# -ge 2 ] || die "Для --project нужен UUID"; PROJECT_UUID="$2"; shift 2 ;;
+    --project-name) [ $# -ge 2 ] || die "Для --project-name нужно имя"; PROJECT_NAME_ARG="$2"; shift 2 ;;
     --question)   [ $# -ge 2 ] || die "Для --question нужен текст"; QUESTION="$2"; shift 2 ;;
     --chat)       [ $# -ge 2 ] || die "Для --chat нужен UUID"; CHAT_UUID="$2"; shift 2 ;;
     --title)      [ $# -ge 2 ] || die "Для --title нужен текст"; TITLE="$2"; shift 2 ;;
@@ -40,7 +42,9 @@ done
 
 # ─── resolve source ────────────────────────────────
 
-[ -z "$PROJECT_UUID" ] && [ -f "$PROJECT_FILE" ] && PROJECT_UUID=$(jq -r '.uuid // empty' "$PROJECT_FILE")
+state_migrate "$PROJECT_FILE"
+PROJECT_NAME=$(resolve_project_name "$PROJECT_NAME_ARG")
+[ -z "$PROJECT_UUID" ] && [ -f "$PROJECT_FILE" ] && PROJECT_UUID=$(jq -r --arg n "$PROJECT_NAME" '.projects[$n].uuid // empty' "$PROJECT_FILE")
 
 # --source-url → resolve to UUID from cache
 if [ -n "$URL" ]; then

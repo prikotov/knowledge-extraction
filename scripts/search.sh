@@ -20,6 +20,7 @@ load_task_environment
 URL=""
 SOURCE_UUID=""
 PROJECT_UUID=""
+PROJECT_NAME_ARG=""
 QUERY=""
 
 while [ $# -gt 0 ]; do
@@ -27,6 +28,7 @@ while [ $# -gt 0 ]; do
     --source-url) [ $# -ge 2 ] || die "Для --source-url нужен URL"; URL="$2"; shift 2 ;;
     --source)     [ $# -ge 2 ] || die "Для --source нужен UUID"; SOURCE_UUID="$2"; shift 2 ;;
     --project)    [ $# -ge 2 ] || die "Для --project нужен UUID"; PROJECT_UUID="$2"; shift 2 ;;
+    --project-name) [ $# -ge 2 ] || die "Для --project-name нужно имя"; PROJECT_NAME_ARG="$2"; shift 2 ;;
     --query)      [ $# -ge 2 ] || die "Для --query нужен текст"; QUERY="$2"; shift 2 ;;
     *) die "Неизвестный аргумент: $1" ;;
   esac
@@ -36,7 +38,9 @@ done
 
 # ─── resolve source ────────────────────────────────
 
-[ -z "$PROJECT_UUID" ] && [ -f "$PROJECT_FILE" ] && PROJECT_UUID=$(jq -r '.uuid // empty' "$PROJECT_FILE")
+state_migrate "$PROJECT_FILE"
+PROJECT_NAME=$(resolve_project_name "$PROJECT_NAME_ARG")
+[ -z "$PROJECT_UUID" ] && [ -f "$PROJECT_FILE" ] && PROJECT_UUID=$(jq -r --arg n "$PROJECT_NAME" '.projects[$n].uuid // empty' "$PROJECT_FILE")
 [ -z "$SOURCE_UUID" ] && [ -n "$URL" ] && SOURCE_UUID=$(cache_source_uuid "$(normalize_url "$URL")" "$URL")
 
 [ -z "$PROJECT_UUID" ] && die "Не указан project (--project или .task_project.json)"

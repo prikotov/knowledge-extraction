@@ -16,7 +16,7 @@ class H(BaseHTTPRequestHandler):
   self.reply(200,'{"uuid":"p1"}') if self.path == '/v1/projects' else self.reply(200,'{"sourceUuid":"s1"}')
  def do_GET(self):
   if '/sources?' in self.path:
-   return self.reply(200,'{"items":[{"uuid":"s1","uri":"https://empty.example/a","title":"Empty","status":"ready"}],"pagination":{"total":1}}')
+   return self.reply(200,'{"items":[{"uuid":"s1","uri":"https://empty.example/a","title":"Empty","preparationStatus":"ready"}],"pagination":{"total":1}}')
   if self.path.endswith('/documents'):
    return self.reply(200,'{"items":[]}')
   return self.reply(200,'{"items":[]}')
