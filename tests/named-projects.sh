@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Offline regression test: named research projects stay isolated; legacy layout migrates.
+# Offline regression test: named research projects stay isolated.
 set -euo pipefail
 unset ALL_PROXY HTTPS_PROXY HTTP_PROXY
 ROOT=$(cd "$(dirname "$0")/.." && pwd); TMP=$(mktemp -d)
 cleanup() { [ -n "${PID:-}" ] && kill "$PID" 2>/dev/null || true; rm -rf "$TMP"; }; trap cleanup EXIT
 cp -R "$ROOT/scripts" "$TMP/scripts"; echo '{"access_token":"test"}' > "$TMP/.task_token.json"
-# Legacy single-project layout must survive the migration untouched.
-printf '%s\n' '{"uuid":"legacy","sources":{"https://old.example/":{"uuid":"u0","status":"ready","note":"keep"}}}' > "$TMP/.task_project.json"
+# Pre-existing project state must survive new ingests untouched.
+printf '%s\n' '{"active":"default","projects":{"default":{"uuid":"legacy","sources":{"https://old.example/":{"uuid":"u0","status":"ready","note":"keep"}}}}}' > "$TMP/.knowledge-extraction.json"
 
 cat > "$TMP/server.py" <<'PY'
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -38,14 +38,13 @@ S() { (cd "$TMP" && TASK_API_URL="$API" ./scripts/search.sh "$@"); }
 # Each research lands in its own project; the last one becomes active.
 I --project-name research-a --project-description "SDD comparison research" --source-url "https://a.example/x" > "$TMP/out1"
 I --project-name research-b --source-url "https://a.example/x" > "$TMP/out2"
-jq -e '.projects["research-a"].uuid == "pa" and .projects["research-b"].uuid == "pb" and .active == "research-b"' "$TMP/.task_project.json" >/dev/null
+jq -e '.projects["research-a"].uuid == "pa" and .projects["research-b"].uuid == "pb" and .active == "research-b"' "$TMP/.knowledge-extraction.json" >/dev/null
 # Purpose is stored next to the uuid so later sessions can pick the right project.
-jq -e '.projects["research-a"].description == "SDD comparison research" and .projects["research-a"].title == "research-a"' "$TMP/.task_project.json" >/dev/null
+jq -e '.projects["research-a"].description == "SDD comparison research" and .projects["research-a"].title == "research-a"' "$TMP/.knowledge-extraction.json" >/dev/null
 # Sources are scoped per project even for the same URL.
-jq -e '.projects["research-a"].sources | length == 1' "$TMP/.task_project.json" >/dev/null
-jq -e '.projects["research-b"].sources | length == 1' "$TMP/.task_project.json" >/dev/null
-# Legacy project survives the migration.
-jq -e '.projects.default.uuid == "legacy" and .projects.default.sources["https://old.example/"].note == "keep"' "$TMP/.task_project.json" >/dev/null
+jq -e '.projects["research-a"].sources | length == 1' "$TMP/.knowledge-extraction.json" >/dev/null
+jq -e '.projects["research-b"].sources | length == 1' "$TMP/.knowledge-extraction.json" >/dev/null
+jq -e '.projects.default.uuid == "legacy" and .projects.default.sources["https://old.example/"].note == "keep"' "$TMP/.knowledge-extraction.json" >/dev/null
 
 # Explicit name wins over active; search hits that project's endpoint.
 S --project-name research-a --source-url "https://a.example/x" --query q > "$TMP/s1"
