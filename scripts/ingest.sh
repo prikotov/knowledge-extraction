@@ -9,13 +9,14 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 load_task_environment
 
-URL=""; SOURCE_FILE=""; PROJECT_UUID=""; PROJECT_NAME_ARG=""; CHECK_ONLY=false
+URL=""; SOURCE_FILE=""; PROJECT_UUID=""; PROJECT_NAME_ARG=""; PROJECT_DESC_ARG=""; CHECK_ONLY=false
 while [ $# -gt 0 ]; do
  case "$1" in
   --source-url) [ $# -ge 2 ] || die "Для --source-url нужен URL"; URL="$2"; shift 2 ;;
   --source-file) [ $# -ge 2 ] || die "Для --source-file нужен путь"; SOURCE_FILE="$2"; shift 2 ;;
   --project) [ $# -ge 2 ] || die "Для --project нужен UUID"; PROJECT_UUID="$2"; shift 2 ;;
   --project-name) [ $# -ge 2 ] || die "Для --project-name нужно имя"; PROJECT_NAME_ARG="$2"; shift 2 ;;
+  --project-description) [ $# -ge 2 ] || die "Для --project-description нужен текст"; PROJECT_DESC_ARG="$2"; shift 2 ;;
   --check) CHECK_ONLY=true; shift ;;
   *) die "Неизвестный аргумент: $1" ;;
  esac
@@ -68,10 +69,11 @@ fi
 "$CHECK_ONLY" && [ -z "$PROJECT_UUID" ] && die "Для --check нужен существующий .task_project.json или --project"
 if [ "$PROJECT_NAME" = "default" ]; then PROJECT_TITLE=$(basename "$ARTICLE_DIR"); else PROJECT_TITLE="$PROJECT_NAME"; fi
 if [ -n "$PROJECT_UUID" ]; then
- jq --arg n "$PROJECT_NAME" --arg uuid "$PROJECT_UUID" '(.projects[$n].sources //= {}) | .projects[$n].uuid=$uuid | .active=$n' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
+ jq --arg n "$PROJECT_NAME" --arg uuid "$PROJECT_UUID" --arg t "$PROJECT_TITLE" --arg d "$PROJECT_DESC_ARG" '(.projects[$n].sources //= {}) | .projects[$n].uuid=$uuid | .projects[$n].title=$t | (if $d != "" then .projects[$n].description=$d else . end) | .active=$n' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
 else
  info "Создаю проект: $PROJECT_TITLE"
- PROJECT_JSON=$(api_json POST '/projects' "$(jq -n --arg title "$PROJECT_TITLE" '{title:$title,description:"Материалы для извлечения знаний"}')") \
+ PROJECT_DESCRIPTION="${PROJECT_DESC_ARG:-Материалы для извлечения знаний}"
+ PROJECT_JSON=$(api_json POST '/projects' "$(jq -n --arg title "$PROJECT_TITLE" --arg d "$PROJECT_DESCRIPTION" '{title:$title,description:$d}')") \
    || die 'Не удалось создать проект'
  PROJECT_UUID=$(jq -r '.uuid // empty' <<<"$PROJECT_JSON")
  if [ -z "$PROJECT_UUID" ]; then
@@ -80,9 +82,10 @@ else
   PROJECT_UUID=$(jq -r --arg t "$PROJECT_TITLE" '.items[] | select(.title==$t) | .uuid // empty' <<<"$PROJECTS_JSON" | head -n1)
   [ -n "$PROJECT_UUID" ] || die 'TasK API не вернул UUID созданного проекта'
  fi
- jq --arg n "$PROJECT_NAME" --arg uuid "$PROJECT_UUID" '(.projects[$n].sources //= {}) | .projects[$n].uuid=$uuid | .active=$n' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
+ jq --arg n "$PROJECT_NAME" --arg uuid "$PROJECT_UUID" --arg t "$PROJECT_TITLE" --arg d "$PROJECT_DESC_ARG" '(.projects[$n].sources //= {}) | .projects[$n].uuid=$uuid | .projects[$n].title=$t | (if $d != "" then .projects[$n].description=$d else . end) | .active=$n' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
 fi
 info "Проект: $PROJECT_TITLE ($PROJECT_UUID)"
+[ -n "$PROJECT_DESC_ARG" ] && info "Назначение: $PROJECT_DESC_ARG"
 info "Рабочий каталог: $ARTICLE_DIR"
 
 # Merge by UUID. API fields only create missing records; existing custom fields survive.

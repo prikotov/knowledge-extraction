@@ -36,9 +36,11 @@ I() { (cd "$TMP" && TASK_API_URL="$API" ./scripts/ingest.sh "$@"); }
 S() { (cd "$TMP" && TASK_API_URL="$API" ./scripts/search.sh "$@"); }
 
 # Each research lands in its own project; the last one becomes active.
-I --project-name research-a --source-url "https://a.example/x" > "$TMP/out1"
+I --project-name research-a --project-description "SDD comparison research" --source-url "https://a.example/x" > "$TMP/out1"
 I --project-name research-b --source-url "https://a.example/x" > "$TMP/out2"
 jq -e '.projects["research-a"].uuid == "pa" and .projects["research-b"].uuid == "pb" and .active == "research-b"' "$TMP/.task_project.json" >/dev/null
+# Purpose is stored next to the uuid so later sessions can pick the right project.
+jq -e '.projects["research-a"].description == "SDD comparison research" and .projects["research-a"].title == "research-a"' "$TMP/.task_project.json" >/dev/null
 # Sources are scoped per project even for the same URL.
 jq -e '.projects["research-a"].sources | length == 1' "$TMP/.task_project.json" >/dev/null
 jq -e '.projects["research-b"].sources | length == 1' "$TMP/.task_project.json" >/dev/null
