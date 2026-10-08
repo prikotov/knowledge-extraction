@@ -38,7 +38,7 @@ grep -q '^documents=1$' "$TMP/out1"
 jq -e '(.documentName == "Выводы") and (.content | contains("КОМПИЛЯЦИЯ РЕСЁРЧА")) and (.content | contains("НЕ ПЕРВОИСТОЧНИК")) and (.content | contains("SDD-инструменты различаются"))' "$TMP/stored.jsonl" >/dev/null
 
 # Same title again is a no-op: the result is already stored.
-printf 'Другой текст.\n' | I --project-name research --source-text --title "Выводы" > "$TMP/out2"
+printf 'Другой текст.\n' | I --project-name research --source-text --title "Выводы" > "$TMP/out2" 2>&1
 grep -q 'уже сохранён' "$TMP/out2"
 [ "$(wc -l < "$TMP/stored.jsonl")" = "1" ]
 # The cache remembers the result under its title key.
