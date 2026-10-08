@@ -42,7 +42,6 @@ done
 
 # ─── resolve source ────────────────────────────────
 
-state_migrate "$PROJECT_FILE"
 PROJECT_NAME=$(resolve_project_name "$PROJECT_NAME_ARG")
 [ -z "$PROJECT_UUID" ] && [ -f "$PROJECT_FILE" ] && PROJECT_UUID=$(jq -r --arg n "$PROJECT_NAME" '.projects[$n].uuid // empty' "$PROJECT_FILE")
 
@@ -93,7 +92,7 @@ parse_sse() {
 # ─── Новый диалог или продолжение ──────────────────
 
 if [ -z "$CHAT_UUID" ]; then
-  [ -z "$PROJECT_UUID" ] && die "Не указан project (--project или .task_project.json)"
+  [ -z "$PROJECT_UUID" ] && die "Не указан project (--project или .knowledge-extraction.json)"
 
   # Метаданные sources — нужны для title и вопроса по умолчанию
   SRC_META=$(api_json GET "/projects/${PROJECT_UUID}/sources") || die "Не удалось получить sources"

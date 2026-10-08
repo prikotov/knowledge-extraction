@@ -14,7 +14,7 @@ resolve_workspace() {
       printf '%s\n' "$dir"
       return
     fi
-    if [ -z "$fallback" ] && { [ -f "$dir/.task_config.json" ] || [ -f "$dir/.task_project.json" ]; }; then
+    if [ -z "$fallback" ] && { [ -f "$dir/.task_config.json" ] || [ -f "$dir/.knowledge-extraction.json" ]; }; then
       fallback="$dir"
     fi
     dir=$(dirname "$dir")
@@ -25,7 +25,7 @@ resolve_workspace() {
 
 load_task_environment() {
   ARTICLE_DIR=$(resolve_workspace)
-  PROJECT_FILE="$ARTICLE_DIR/.task_project.json"
+  PROJECT_FILE="$ARTICLE_DIR/.knowledge-extraction.json"
   TASK_API_URL="${TASK_API_URL:-https://api.ai-aid.pro/v1}"
   command -v curl >/dev/null || die "Не найден curl"
   command -v jq >/dev/null || die "Не найден jq"
@@ -58,19 +58,6 @@ normalize_url() {
 }
 
 canonical_file() { realpath -m "$1"; }
-
-# Multi-project state: {active, projects: {<name>: {uuid, sources}}}. Each research
-# lives in its own project so chats never mix unrelated sources.
-# Legacy single-project layout ({uuid, sources}) migrates in place on first use.
-state_migrate() {
-  local file="$1" tmp
-  [ -f "$file" ] || return 0
-  jq -e 'has("projects")' "$file" >/dev/null 2>&1 && return 0
-  jq -e 'has("uuid")' "$file" >/dev/null 2>&1 || return 0
-  tmp="$file.tmp"
-  jq '{active: "default", projects: {default: {uuid: .uuid, sources: (.sources // {})}}}' "$file" > "$tmp" \
-    && mv "$tmp" "$file"
-}
 
 # Explicit --project-name wins; otherwise the last used project; otherwise "default".
 resolve_project_name() {

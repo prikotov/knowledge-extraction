@@ -61,17 +61,16 @@ all_sources() {
 }
 
 "$CHECK_ONLY" && [ ! -f "$PROJECT_FILE" ] && [ -z "$PROJECT_UUID" ] \
-  && die "Для --check нужен существующий .task_project.json или --project"
-state_migrate "$PROJECT_FILE"
+  && die "Для --check нужен существующий .knowledge-extraction.json или --project"
 PROJECT_NAME=$(resolve_project_name "$PROJECT_NAME_ARG")
 api_json GET '/projects' >/dev/null || die 'TasK API недоступен'
 [ -f "$PROJECT_FILE" ] || echo '{"active":"","projects":{}}' > "$PROJECT_FILE"
 CACHED_PROJECT_UUID=$(jq -r --arg n "$PROJECT_NAME" '.projects[$n].uuid // empty' "$PROJECT_FILE")
 if [ -n "$PROJECT_UUID" ] && [ -n "$CACHED_PROJECT_UUID" ] && [ "$PROJECT_UUID" != "$CACHED_PROJECT_UUID" ]; then
- die "--project не совпадает с UUID проекта «$PROJECT_NAME» в .task_project.json"
+ die "--project не совпадает с UUID проекта «$PROJECT_NAME» в .knowledge-extraction.json"
 fi
 [ -z "$PROJECT_UUID" ] && PROJECT_UUID="$CACHED_PROJECT_UUID"
-"$CHECK_ONLY" && [ -z "$PROJECT_UUID" ] && die "Для --check нужен существующий .task_project.json или --project"
+"$CHECK_ONLY" && [ -z "$PROJECT_UUID" ] && die "Для --check нужен существующий .knowledge-extraction.json или --project"
 if [ "$PROJECT_NAME" = "default" ]; then PROJECT_TITLE=$(basename "$ARTICLE_DIR"); else PROJECT_TITLE="$PROJECT_NAME"; fi
 if [ -n "$PROJECT_UUID" ]; then
  jq --arg n "$PROJECT_NAME" --arg uuid "$PROJECT_UUID" --arg t "$PROJECT_TITLE" --arg d "$PROJECT_DESC_ARG" '(.projects[$n].sources //= {}) | .projects[$n].uuid=$uuid | .projects[$n].title=$t | (if $d != "" then .projects[$n].description=$d else . end) | .active=$n' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
@@ -128,7 +127,7 @@ fi
 
 # Результат ресёрча: текст из stdin — это компиляция, а не первоисточник.
 # Сохраняется как есть; от первоисточников отличается меткой kind: result в
-# .task_project.json (см. также пометку в выводе search.sh).
+# .knowledge-extraction.json (см. также пометку в выводе search.sh).
 if $SOURCE_TEXT; then
  TEXT_FILE=$(mktemp)
  cat > "$TEXT_FILE"

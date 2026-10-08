@@ -4,7 +4,7 @@ set -euo pipefail
 unset ALL_PROXY HTTPS_PROXY HTTP_PROXY
 ROOT=$(cd "$(dirname "$0")/.." && pwd); TMP=$(mktemp -d); PORT_FILE="$TMP/port"
 cleanup() { [ -n "${SERVER_PID:-}" ] && kill "$SERVER_PID" 2>/dev/null || true; rm -rf "$TMP"; }; trap cleanup EXIT
-cp -R "$ROOT/scripts" "$TMP/scripts"; printf '%s\n' '{"access_token":"test-token"}' > "$TMP/.task_token.json"; printf '%s\n' '{"uuid":"","sources":{"old":{"uuid":"u1","status":"pending","note":"keep"}}}' > "$TMP/.task_project.json"
+cp -R "$ROOT/scripts" "$TMP/scripts"; printf '%s\n' '{"access_token":"test-token"}' > "$TMP/.task_token.json"; printf '%s\n' '{"active":"default","projects":{"default":{"uuid":"","sources":{"old":{"uuid":"u1","status":"pending","note":"keep"}}}}}' > "$TMP/.knowledge-extraction.json"
 cat > "$TMP/server.py" <<'PY'
 from http.server import BaseHTTPRequestHandler,HTTPServer
 import json, os
@@ -30,7 +30,7 @@ start() { MODE="$1" python3 "$TMP/server.py" > "$PORT_FILE" & SERVER_PID=$!; for
 stop() { kill "$SERVER_PID"; wait "$SERVER_PID" 2>/dev/null || true; unset SERVER_PID; : > "$PORT_FILE"; }
 start ok
 (cd "$TMP" && TASK_API_URL="http://127.0.0.1:$PORT/v1" ./scripts/ingest.sh --check --project p > "$TMP/check.out")
-jq -e '(.projects.default.sources | length == 2 and ([.[] | .uuid] | sort == ["u1","u2"])) and .projects.default.sources.old.note == "keep" and .projects.default.sources.old.status == "ready"' "$TMP/.task_project.json" >/dev/null
+jq -e '(.projects.default.sources | length == 2 and ([.[] | .uuid] | sort == ["u1","u2"])) and .projects.default.sources.old.note == "keep" and .projects.default.sources.old.status == "ready"' "$TMP/.knowledge-extraction.json" >/dev/null
 grep -q 'импортирован из API' "$TMP/check.out"
 stop
 if (cd "$TMP" && TASK_API_URL="http://127.0.0.1:1/v1" ./scripts/chat.sh --chat c --question q >"$TMP/out" 2>"$TMP/err"); then echo 'transport unexpectedly succeeded' >&2; exit 1; fi
