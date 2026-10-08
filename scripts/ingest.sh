@@ -9,11 +9,13 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 load_task_environment
 
-URL=""; SOURCE_FILE=""; PROJECT_UUID=""; PROJECT_NAME_ARG=""; PROJECT_DESC_ARG=""; CHECK_ONLY=false
+URL=""; SOURCE_FILE=""; SOURCE_TEXT=false; TITLE=""; PROJECT_UUID=""; PROJECT_NAME_ARG=""; PROJECT_DESC_ARG=""; CHECK_ONLY=false
 while [ $# -gt 0 ]; do
  case "$1" in
   --source-url) [ $# -ge 2 ] || die "Для --source-url нужен URL"; URL="$2"; shift 2 ;;
   --source-file) [ $# -ge 2 ] || die "Для --source-file нужен путь"; SOURCE_FILE="$2"; shift 2 ;;
+  --source-text) SOURCE_TEXT=true; shift ;;
+  --title) [ $# -ge 2 ] || die "Для --title нужен текст"; TITLE="$2"; shift 2 ;;
   --project) [ $# -ge 2 ] || die "Для --project нужен UUID"; PROJECT_UUID="$2"; shift 2 ;;
   --project-name) [ $# -ge 2 ] || die "Для --project-name нужно имя"; PROJECT_NAME_ARG="$2"; shift 2 ;;
   --project-description) [ $# -ge 2 ] || die "Для --project-description нужен текст"; PROJECT_DESC_ARG="$2"; shift 2 ;;
@@ -24,7 +26,10 @@ done
 if [ -n "$URL" ] && [ -f "$URL" ] && [ -z "$SOURCE_FILE" ]; then SOURCE_FILE="$URL"; URL=""; fi
 [ -n "$SOURCE_FILE" ] && [ ! -f "$SOURCE_FILE" ] && die "Файл не найден: $SOURCE_FILE"
 [ -n "$URL" ] && [ -n "$SOURCE_FILE" ] && die "Укажите только --source-url или --source-file"
-! "$CHECK_ONLY" && [ -z "$URL" ] && [ -z "$SOURCE_FILE" ] && die "Нужен --source-url или --source-file (или --check)"
+{ [ -n "$URL" ] || [ -n "$SOURCE_FILE" ]; } && $SOURCE_TEXT && die "--source-text не совмещается с --source-url/--source-file"
+"$CHECK_ONLY" && $SOURCE_TEXT && die "Для --source-text нужен режим загрузки, а не --check"
+if ! "$CHECK_ONLY" && ! $SOURCE_TEXT && [ -z "$URL" ] && [ -z "$SOURCE_FILE" ]; then die "Нужен --source-url или --source-file (или --check)"; fi
+$SOURCE_TEXT && [ -t 0 ] && die "--source-text читает контент из stdin: echo "текст" | ingest.sh --source-text --title "Название""
 
 api_file() {
  local path="$1" file="$2" body headers code rc detail
@@ -121,6 +126,30 @@ if "$CHECK_ONLY"; then
  echo "Изменений: $((MERGED_UPDATED + MERGED_IMPORTED))"; exit 0
 fi
 
+# Результат ресёрча: текст из stdin — это компиляция, а не первоисточник. Клеим
+# заголовок-маркер, чтобы чанки, найденные поиском, сами сообщали об этом.
+if $SOURCE_TEXT; then
+ TEXT_FILE=$(mktemp)
+ cat > "$TEXT_FILE"
+ [ -s "$TEXT_FILE" ] || { rm -f "$TEXT_FILE"; die 'stdin пуст — нечего сохранять'; }
+ TITLE="${TITLE:-Результат ресёрча $(date +%Y-%m-%d)}"; TITLE="${TITLE:0:255}"
+ NORM_URL="text:$TITLE"; SOURCE_VALUE="$TITLE"
+ SOURCE_UUID=$(cache_source_uuid "$NORM_URL" "$SOURCE_VALUE")
+ if [ -n "$SOURCE_UUID" ]; then
+  info "Результат с названием «$TITLE» уже сохранён (source $SOURCE_UUID) — пропускаю. Новая версия — под другим названием."
+ else
+  HEADER_FILE=$(mktemp)
+  { echo "⚠️ КОМПИЛЯЦИЯ РЕСЁРЧА — НЕ ПЕРВОИСТОЧНИК. Сводка, составленная ИИ-агентом $(date +%Y-%m-%d) в проекте «$PROJECT_TITLE» на основе его источников. Факты и дословные цитаты сверяй с первоисточниками этого проекта."; echo; cat "$TEXT_FILE"; } > "$HEADER_FILE"
+  info "Сохраняю результат: $TITLE"
+  PAYLOAD=$(jq -n --rawfile c "$HEADER_FILE" --arg n "$TITLE" '{content:$c, documentName:$n}')
+  SOURCE_JSON=$(api_json POST "/projects/${PROJECT_UUID}/source-contents" "$PAYLOAD") || { rm -f "$TEXT_FILE" "$HEADER_FILE"; die 'Не удалось сохранить результат'; }
+  SOURCE_UUID=$(jq -r '.sourceUuid // empty' <<<"$SOURCE_JSON"); [ -n "$SOURCE_UUID" ] || { rm -f "$TEXT_FILE" "$HEADER_FILE"; die 'Не удалось сохранить результат'; }
+  jq --arg n "$PROJECT_NAME" --arg key "$NORM_URL" --arg uuid "$SOURCE_UUID" --arg url "$SOURCE_VALUE" --arg date "$(date +%Y-%m-%d)" \
+   '.projects[$n].sources[$key]={uuid:$uuid,url:$url,title:"",status:"pending",last_used:$date}' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
+  rm -f "$TEXT_FILE" "$HEADER_FILE"
+ fi
+ rm -f "$TEXT_FILE"
+else
 if [ -n "$SOURCE_FILE" ]; then SOURCE_VALUE=$(canonical_file "$SOURCE_FILE"); NORM_URL="$SOURCE_VALUE"; else SOURCE_VALUE="$URL"; NORM_URL=$(normalize_url "$URL"); fi
 SOURCE_UUID=$(cache_source_uuid "$NORM_URL" "$SOURCE_VALUE")
 SOURCES_JSON=$(all_sources) || die 'Не удалось получить sources'
@@ -135,6 +164,7 @@ if [ -z "$SOURCE_UUID" ]; then
  fi
  SOURCE_UUID=$(jq -r '.sourceUuid // empty' <<<"$SOURCE_JSON"); [ -n "$SOURCE_UUID" ] || die 'Не удалось загрузить source'
  jq --arg n "$PROJECT_NAME" --arg url "$NORM_URL" --arg uuid "$SOURCE_UUID" --arg src_url "$SOURCE_VALUE" --arg date "$(date +%Y-%m-%d)" '.projects[$n].sources[$url]={uuid:$uuid,url:$src_url,title:"",status:"pending",last_used:$date}' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
+fi
 fi
 info "Source: $SOURCE_UUID"
 info 'Ожидаю обработки…'

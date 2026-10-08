@@ -128,6 +128,9 @@ Skill использует методы TasK API:
 # Проверить статус обработки
 .agents/skills/knowledge-extraction/scripts/ingest.sh --check
 
+# Сохранить результат ресёрча обратно в проект (компиляция — stdin)
+printf '%s' "## Выводы\n- …" | .agents/skills/knowledge-extraction/scripts/ingest.sh --project-name sdd-research --source-text --title "Выводы: SDD"
+
 # При ошибке API chat.sh завершится с ошибкой и напечатает, например:
 # HTTP 422: Need to top up balance.
 ```
