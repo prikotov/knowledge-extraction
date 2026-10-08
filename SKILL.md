@@ -41,7 +41,7 @@ scripts/ingest.sh --check
 | `--title` | Для `--source-text` — да | «Результат ресёрча ⟨дата⟩» |
 | `--project-name` | Нет | Имя текущей папки |
 | `--project-description` | Нет | «Материалы для извлечения знаний» |
-| `--project` | Нет | Из `.task_project.json` |
+| `--project` | Нет | Из `.knowledge-extraction.json` |
 | `--check` | Нет | — |
 
 Создаёт проект (название — имя текущей папки или `--project-name`), загружает source, ждёт готовности. Повторный вызов с тем же URL не дублирует загрузку. Для локального файла последующий диалог запускай с `--source <UUID>` из вывода `ingest.sh`.
@@ -86,7 +86,7 @@ scripts/chat.sh --chat <UUID> --question "..."
 | `--question` | Для продолжения — да | «О чём этот материал?» |
 | `--title` | Нет | Заголовок первого source или «Диалог с материалом» |
 | `--project-name` | Нет | Последний использованный в каталоге |
-| `--project` | Нет | Из `.task_project.json` |
+| `--project` | Нет | Из `.knowledge-extraction.json` |
 
 Если вопрос относится ко всему набору материалов, не передавай `--source`: чат
 использует все sources проекта и сам подберёт релевантные фрагменты.
@@ -94,7 +94,7 @@ scripts/chat.sh --chat <UUID> --question "..."
 **Разные ресёрчи — разные проекты.** Один вопрос или одна тема — один проект:
 передавай `--project-name <имя-ресёрча>` во все вызовы (`ingest.sh`, `chat.sh`,
 `search.sh`) — в рамках одного рабочего каталога каждый ресёрч получит свой проект
-TasK и свой набор источников в `.task_project.json`. При создании проекта давай
+TasK и свой набор источников в `.knowledge-extraction.json`. При создании проекта давай
 осмысленное `--project-description "…"` — назначение сохраняется в конфиге рядом
 с UUID, и по нему в следующих сессиях видно, какой проект для чего. Без
 `--project-name` всё складывается в общий проект каталога — тогда чат «по всем
@@ -141,10 +141,10 @@ scripts/search.sh --source <UUID> --query "уточняющий запрос"
 
 | Опция | Обязательно | По умолчанию |
 |---|---|---|
-| `--source` | Нет | Из `.task_project.json` по `--source-url` |
+| `--source` | Нет | Из `.knowledge-extraction.json` по `--source-url` |
 | `--source-url` | Нет | — (разрешается в `--source` из кеша) |
 | `--project-name` | Нет | Последний использованный в каталоге |
-| `--project` | Нет | Из `.task_project.json` |
+| `--project` | Нет | Из `.knowledge-extraction.json` |
 | `--query` | Да | — |
 
 Агент ведёт поиск итеративно, как диалог:
@@ -165,7 +165,7 @@ printf '%s' "## Выводы\n- …" | \
   ingest.sh --project-name sdd-research --source-text --title "Выводы: SDD-ресёрч"
 ```
 
-Текст из stdin сохраняется с меткой `kind: result` в `.task_project.json` —
+Текст из stdin сохраняется с меткой `kind: result` в `.knowledge-extraction.json` —
 первоисточники помечены `kind: source`. По метке различай два типа записей:
 
 - **Первоисточники** — слова автора. Цитаты и факты бери из их чанков.
@@ -242,7 +242,7 @@ scripts/search.sh --source-url "https://habr.com/ru/articles/1061876/" \
 
 ## Локальные файлы
 
-Один файл на уровне рабочего проекта — `.task_project.json`. Хранит именованные
+Один файл на уровне рабочего проекта — `.knowledge-extraction.json`. Хранит именованные
 проекты: UUID, маппинг URL → source UUID и статус каждого источника (`pending` /
 `processing` / `ready` / `failed`). Создаётся автоматически при первом запуске
 `ingest.sh`.

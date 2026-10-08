@@ -38,13 +38,13 @@ grep -q '^documents=1$' "$TMP/out1"
 # Content is stored verbatim — no markers glued into the text.
 jq -e '(.documentName == "Выводы") and (.content == "Вывод: SDD-инструменты различаются workflow, а не форматом.\n")' "$TMP/stored.jsonl" >/dev/null
 # The cache marks it as a result, distinct from primary sources.
-jq -e '.projects.research.sources["text:Выводы"].kind == "result" and .projects.research.sources["text:Выводы"].uuid == "res-1"' "$TMP/.task_project.json" >/dev/null
+jq -e '.projects.research.sources["text:Выводы"].kind == "result" and .projects.research.sources["text:Выводы"].uuid == "res-1"' "$TMP/.knowledge-extraction.json" >/dev/null
 
 # Same title again is a no-op: the result is already stored.
 printf 'Другой текст.\n' | I --project-name research --source-text --title "Выводы" > "$TMP/out2" 2>&1
 grep -q 'уже сохранён' "$TMP/out2"
 [ "$(wc -l < "$TMP/stored.jsonl")" = "1" ]
 # The cache remembers the result under its title key.
-jq -e '.projects.research.sources["text:Выводы"].uuid == "res-1"' "$TMP/.task_project.json" >/dev/null
+jq -e '.projects.research.sources["text:Выводы"].uuid == "res-1"' "$TMP/.knowledge-extraction.json" >/dev/null
 
 echo 'result-compilation: ok'

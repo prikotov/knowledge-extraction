@@ -34,6 +34,6 @@ grep -q 'Рабочий каталог' "$TMP/err"
 grep -q 'documents=0' "$TMP/err"
 grep -q 'чат и поиск по нему ничего не вернут' "$TMP/err"
 # Source stays usable (exit 0) — the warning must not break the happy path.
-test -f "$TMP/.task_project.json"
+test -f "$TMP/.knowledge-extraction.json"
 
 echo 'ingest-empty-documents: ok'
