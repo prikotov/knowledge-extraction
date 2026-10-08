@@ -29,7 +29,7 @@ if [ -n "$URL" ] && [ -f "$URL" ] && [ -z "$SOURCE_FILE" ]; then SOURCE_FILE="$U
 { [ -n "$URL" ] || [ -n "$SOURCE_FILE" ]; } && $SOURCE_TEXT && die "--source-text не совмещается с --source-url/--source-file"
 "$CHECK_ONLY" && $SOURCE_TEXT && die "Для --source-text нужен режим загрузки, а не --check"
 if ! "$CHECK_ONLY" && ! $SOURCE_TEXT && [ -z "$URL" ] && [ -z "$SOURCE_FILE" ]; then die "Нужен --source-url или --source-file (или --check)"; fi
-$SOURCE_TEXT && [ -t 0 ] && die "--source-text читает контент из stdin: echo "текст" | ingest.sh --source-text --title "Название""
+$SOURCE_TEXT && [ -t 0 ] && die '--source-text читает контент из stdin: echo "текст" | ingest.sh --source-text --title "Название"'
 
 api_file() {
  local path="$1" file="$2" body headers code rc detail
@@ -126,8 +126,9 @@ if "$CHECK_ONLY"; then
  echo "Изменений: $((MERGED_UPDATED + MERGED_IMPORTED))"; exit 0
 fi
 
-# Результат ресёрча: текст из stdin — это компиляция, а не первоисточник. Клеим
-# заголовок-маркер, чтобы чанки, найденные поиском, сами сообщали об этом.
+# Результат ресёрча: текст из stdin — это компиляция, а не первоисточник.
+# Сохраняется как есть; от первоисточников отличается меткой kind: result в
+# .task_project.json (см. также пометку в выводе search.sh).
 if $SOURCE_TEXT; then
  TEXT_FILE=$(mktemp)
  cat > "$TEXT_FILE"
