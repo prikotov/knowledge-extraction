@@ -98,7 +98,7 @@ merge_sources() {
  while IFS= read -r encoded; do
   [ -n "$encoded" ] || continue
   uuid=$(printf %s "$encoded" | base64 -d | jq -r '.uuid // empty'); [ -n "$uuid" ] || continue
-  uri=$(printf %s "$encoded" | base64 -d | jq -r '.uri // .url // ""'); title=$(printf %s "$encoded" | base64 -d | jq -r '.title // ""'); status=$(printf %s "$encoded" | base64 -d | jq -r '.preparationStatus // .status // "unknown"')
+  uri=$(printf %s "$encoded" | base64 -d | jq -r '.uri // .url // ""'); title=$(printf %s "$encoded" | base64 -d | jq -r '.title // ""'); status=$(printf %s "$encoded" | base64 -d | jq -r '.preparationStatus // "unknown"')
   existing=$(jq -r --arg n "$PROJECT_NAME" --arg u "$uuid" '(.projects[$n].sources // {}) | to_entries[]? | select(.value.uuid==$u) | .key' "$PROJECT_FILE" | head -n1)
   if [ -n "$existing" ]; then
    old_status=$(jq -r --arg n "$PROJECT_NAME" --arg k "$existing" '.projects[$n].sources[$k].status // "unknown"' "$PROJECT_FILE")
@@ -167,7 +167,7 @@ fi
 info "Source: $SOURCE_UUID"
 info 'Ожидаю обработки…'
 for i in $(seq 1 120); do
- SOURCES_JSON=$(all_sources) || die 'Не удалось получить status source'; STATUS=$(jq -r --arg u "$SOURCE_UUID" '.items[] | select(.uuid==$u) | (.preparationStatus // .status) // "processing"' <<<"$SOURCES_JSON" | head -n1)
+ SOURCES_JSON=$(all_sources) || die 'Не удалось получить status source'; STATUS=$(jq -r --arg u "$SOURCE_UUID" '.items[] | select(.uuid==$u) | .preparationStatus // "processing"' <<<"$SOURCES_JSON" | head -n1)
  jq --arg n "$PROJECT_NAME" --arg u "$SOURCE_UUID" --arg s "$STATUS" '.projects[$n].sources |= with_entries(if .value.uuid == $u then .value.status = $s else . end)' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
  case "$STATUS" in ready) info "✓ Готов (попытка $i)"; break;; failed|error) die "Source в ошибке: $STATUS";; *) sleep 5;; esac
  [ "$i" -eq 120 ] && die "Source не готов за ~10 мин (статус: $STATUS). НЕ перезапускайте ingest с тем же URL — источник уже в очереди. Работайте с другими источниками или проверьте статус позже: ingest.sh --check"
