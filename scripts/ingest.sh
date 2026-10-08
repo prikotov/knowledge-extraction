@@ -110,7 +110,7 @@ merge_sources() {
    [ -n "$key" ] || key="$uuid"
    if jq -e --arg n "$PROJECT_NAME" --arg k "$key" '.projects[$n].sources[$k] != null' "$PROJECT_FILE" >/dev/null; then key="${key_base}#${uuid}"; fi
    jq --arg n "$PROJECT_NAME" --arg k "$key" --arg u "$uuid" --arg url "$uri" --arg title "$title" --arg status "$status" --arg date "$(date +%Y-%m-%d)" \
-    '.projects[$n].sources[$k]={uuid:$u,url:$url,title:$title,status:$status,last_used:$date}' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
+    '.projects[$n].sources[$k]={uuid:$u,url:$url,title:$title,status:$status,last_used:$date,kind:"source"}' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
    echo "$key → $status (импортирован из API)"; imported=$((imported + 1))
   fi
  done < <(jq -r '.items[] | @base64' <<<"$sources")
@@ -138,15 +138,13 @@ if $SOURCE_TEXT; then
  if [ -n "$SOURCE_UUID" ]; then
   info "Результат с названием «$TITLE» уже сохранён (source $SOURCE_UUID) — пропускаю. Новая версия — под другим названием."
  else
-  HEADER_FILE=$(mktemp)
-  { echo "⚠️ КОМПИЛЯЦИЯ РЕСЁРЧА — НЕ ПЕРВОИСТОЧНИК. Сводка, составленная ИИ-агентом $(date +%Y-%m-%d) в проекте «$PROJECT_TITLE» на основе его источников. Факты и дословные цитаты сверяй с первоисточниками этого проекта."; echo; cat "$TEXT_FILE"; } > "$HEADER_FILE"
   info "Сохраняю результат: $TITLE"
-  PAYLOAD=$(jq -n --rawfile c "$HEADER_FILE" --arg n "$TITLE" '{content:$c, documentName:$n}')
-  SOURCE_JSON=$(api_json POST "/projects/${PROJECT_UUID}/source-contents" "$PAYLOAD") || { rm -f "$TEXT_FILE" "$HEADER_FILE"; die 'Не удалось сохранить результат'; }
-  SOURCE_UUID=$(jq -r '.sourceUuid // empty' <<<"$SOURCE_JSON"); [ -n "$SOURCE_UUID" ] || { rm -f "$TEXT_FILE" "$HEADER_FILE"; die 'Не удалось сохранить результат'; }
+  PAYLOAD=$(jq -n --rawfile c "$TEXT_FILE" --arg n "$TITLE" '{content:$c, documentName:$n}')
+  SOURCE_JSON=$(api_json POST "/projects/${PROJECT_UUID}/source-contents" "$PAYLOAD") || { rm -f "$TEXT_FILE"; die 'Не удалось сохранить результат'; }
+  SOURCE_UUID=$(jq -r '.sourceUuid // empty' <<<"$SOURCE_JSON"); [ -n "$SOURCE_UUID" ] || { rm -f "$TEXT_FILE"; die 'Не удалось сохранить результат'; }
   jq --arg n "$PROJECT_NAME" --arg key "$NORM_URL" --arg uuid "$SOURCE_UUID" --arg url "$SOURCE_VALUE" --arg date "$(date +%Y-%m-%d)" \
-   '.projects[$n].sources[$key]={uuid:$uuid,url:$url,title:"",status:"pending",last_used:$date}' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
-  rm -f "$TEXT_FILE" "$HEADER_FILE"
+   '.projects[$n].sources[$key]={uuid:$uuid,url:$url,title:"",status:"pending",last_used:$date,kind:"result"}' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
+  rm -f "$TEXT_FILE"
  fi
  rm -f "$TEXT_FILE"
 else
@@ -163,7 +161,7 @@ if [ -z "$SOURCE_UUID" ]; then
   info "Загружаю: $URL"; SOURCE_JSON=$(api_json POST "/projects/${PROJECT_UUID}/source-urls" "$(jq -n --arg url "$URL" '{uri:$url}')") || die 'Не удалось загрузить source'
  fi
  SOURCE_UUID=$(jq -r '.sourceUuid // empty' <<<"$SOURCE_JSON"); [ -n "$SOURCE_UUID" ] || die 'Не удалось загрузить source'
- jq --arg n "$PROJECT_NAME" --arg url "$NORM_URL" --arg uuid "$SOURCE_UUID" --arg src_url "$SOURCE_VALUE" --arg date "$(date +%Y-%m-%d)" '.projects[$n].sources[$url]={uuid:$uuid,url:$src_url,title:"",status:"pending",last_used:$date}' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
+ jq --arg n "$PROJECT_NAME" --arg url "$NORM_URL" --arg uuid "$SOURCE_UUID" --arg src_url "$SOURCE_VALUE" --arg date "$(date +%Y-%m-%d)" '.projects[$n].sources[$url]={uuid:$uuid,url:$src_url,title:"",status:"pending",last_used:$date,kind:"source"}' "$PROJECT_FILE" > "$PROJECT_FILE.tmp" && mv "$PROJECT_FILE.tmp" "$PROJECT_FILE"
 fi
 fi
 info "Source: $SOURCE_UUID"

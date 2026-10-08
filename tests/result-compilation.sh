@@ -31,11 +31,14 @@ STORED_FILE="$TMP/stored.jsonl" python3 "$TMP/server.py" > "$TMP/port" & PID=$!;
 API="http://127.0.0.1:$(cat "$TMP/port")/v1"
 I() { (cd "$TMP" && TASK_API_URL="$API" ./scripts/ingest.sh "$@"); }
 
-# A research result goes in via stdin; the script marks it as a compilation.
+# A research result goes in via stdin as-is; it gets a kind:result label in the cache.
 printf 'Вывод: SDD-инструменты различаются workflow, а не форматом.\n' | I --project-name research --source-text --title "Выводы" > "$TMP/out1"
 grep -q '^documents=1$' "$TMP/out1"
 [ "$(wc -l < "$TMP/stored.jsonl")" = "1" ]
-jq -e '(.documentName == "Выводы") and (.content | contains("КОМПИЛЯЦИЯ РЕСЁРЧА")) and (.content | contains("НЕ ПЕРВОИСТОЧНИК")) and (.content | contains("SDD-инструменты различаются"))' "$TMP/stored.jsonl" >/dev/null
+# Content is stored verbatim — no markers glued into the text.
+jq -e '(.documentName == "Выводы") and (.content == "Вывод: SDD-инструменты различаются workflow, а не форматом.\n")' "$TMP/stored.jsonl" >/dev/null
+# The cache marks it as a result, distinct from primary sources.
+jq -e '.projects.research.sources["text:Выводы"].kind == "result" and .projects.research.sources["text:Выводы"].uuid == "res-1"' "$TMP/.task_project.json" >/dev/null
 
 # Same title again is a no-op: the result is already stored.
 printf 'Другой текст.\n' | I --project-name research --source-text --title "Выводы" > "$TMP/out2" 2>&1

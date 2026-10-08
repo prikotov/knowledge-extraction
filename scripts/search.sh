@@ -43,8 +43,17 @@ PROJECT_NAME=$(resolve_project_name "$PROJECT_NAME_ARG")
 [ -z "$PROJECT_UUID" ] && [ -f "$PROJECT_FILE" ] && PROJECT_UUID=$(jq -r --arg n "$PROJECT_NAME" '.projects[$n].uuid // empty' "$PROJECT_FILE")
 [ -z "$SOURCE_UUID" ] && [ -n "$URL" ] && SOURCE_UUID=$(cache_source_uuid "$(normalize_url "$URL")" "$URL")
 
-[ -z "$PROJECT_UUID" ] && die "Не указан project (--project или .task_project.json)"
+[ -z "$PROJECT_UUID" ] && die "Не указан project (--project, --project-name или .task_project.json)"
 [ -z "$SOURCE_UUID" ]  && die "Не указан source (--source или --source-url)"
+
+# Метка происхождения: результат ресёрча или первоисточник.
+if [ -f "$PROJECT_FILE" ]; then
+  KIND=$(jq -r --arg n "$PROJECT_NAME" --arg u "$SOURCE_UUID" '[.projects[$n].sources[]? | select(.uuid == $u) | .kind // "source"][0] // "source"' "$PROJECT_FILE" 2>/dev/null)
+  case "$KIND" in
+    result) info "Источник: ${URL:-$SOURCE_UUID} — результат ресёрча (не первоисточник)" ;;
+    *)      info "Источник: ${URL:-$SOURCE_UUID}" ;;
+  esac
+fi
 
 # ─── API wrapper ───────────────────────────────────
 
