@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 load_task_environment
 
-URL=""; SOURCE_FILE=""; SOURCE_TEXT=false; TITLE=""; PROJECT_UUID=""; PROJECT_NAME_ARG=""; PROJECT_DESC_ARG=""; CHECK_ONLY=false
+URL=""; SOURCE_FILE=""; SOURCE_TEXT=false; TITLE=""; INFO_SOURCE_UUID=""; LIST_MODE=false; INFO_MODE=false; PROJECT_UUID=""; PROJECT_NAME_ARG=""; PROJECT_DESC_ARG=""; CHECK_ONLY=false
 while [ $# -gt 0 ]; do
  case "$1" in
   --source-url) [ $# -ge 2 ] || die "Для --source-url нужен URL"; URL="$2"; shift 2 ;;
@@ -19,6 +19,9 @@ while [ $# -gt 0 ]; do
   --project) [ $# -ge 2 ] || die "Для --project нужен UUID"; PROJECT_UUID="$2"; shift 2 ;;
   --project-name) [ $# -ge 2 ] || die "Для --project-name нужно имя"; PROJECT_NAME_ARG="$2"; shift 2 ;;
   --project-description) [ $# -ge 2 ] || die "Для --project-description нужен текст"; PROJECT_DESC_ARG="$2"; shift 2 ;;
+  --source) [ $# -ge 2 ] || die "Для --source нужен UUID"; INFO_SOURCE_UUID="$2"; shift 2 ;;
+  --list) LIST_MODE=true; shift ;;
+  --info) INFO_MODE=true; shift ;;
   --check) CHECK_ONLY=true; shift ;;
   *) die "Неизвестный аргумент: $1" ;;
  esac
@@ -28,7 +31,10 @@ if [ -n "$URL" ] && [ -f "$URL" ] && [ -z "$SOURCE_FILE" ]; then SOURCE_FILE="$U
 [ -n "$URL" ] && [ -n "$SOURCE_FILE" ] && die "Укажите только --source-url или --source-file"
 { [ -n "$URL" ] || [ -n "$SOURCE_FILE" ]; } && $SOURCE_TEXT && die "--source-text не совмещается с --source-url/--source-file"
 "$CHECK_ONLY" && $SOURCE_TEXT && die "Для --source-text нужен режим загрузки, а не --check"
-if ! "$CHECK_ONLY" && ! $SOURCE_TEXT && [ -z "$URL" ] && [ -z "$SOURCE_FILE" ]; then die "Нужен --source-url или --source-file (или --check)"; fi
+if ! "$CHECK_ONLY" && ! $SOURCE_TEXT && ! $LIST_MODE && ! $INFO_MODE && [ -z "$URL" ] && [ -z "$SOURCE_FILE" ]; then die "Нужен --source-url, --source-file, --list, --info (или --check)"; fi
+{ $LIST_MODE && $INFO_MODE; } && die "Выберите --list или --info"
+[ -n "$URL" ] && [ -n "$INFO_SOURCE_UUID" ] && die "Укажите один источник: --source или --source-url"
+$LIST_MODE && $SOURCE_TEXT && die "--list не совмещается с --source-text"
 $SOURCE_TEXT && [ -t 0 ] && die '--source-text читает контент из stdin: echo "текст" | ingest.sh --source-text --title "Название"'
 
 api_file() {
@@ -123,6 +129,23 @@ if "$CHECK_ONLY"; then
  # Statuses are already merged; print every cached record, including API imports.
  jq -r --arg n "$PROJECT_NAME" '.projects[$n].sources | to_entries[] | "\(.key) → \(.value.status // "unknown")"' "$PROJECT_FILE"
  echo "Изменений: $((MERGED_UPDATED + MERGED_IMPORTED))"; exit 0
+fi
+
+# Метаданные всех источников проекта (статус, длительность, заголовок).
+if $LIST_MODE; then
+ SOURCES_JSON=$(all_sources) || die 'Не удалось получить sources'
+ jq -r '.items[] | ((.duration // 0) | floor) as $d | "\(.preparationStatus)\t\(if $d > 0 then "\($d / 60 | floor) мин" else "-" end)\t\(.title // "")\t\(.uri)"' <<<"$SOURCES_JSON"
+ exit 0
+fi
+
+# Полная карточка источника: описание с таймкодами, длительность, метаданные.
+if $INFO_MODE; then
+ [ -z "$URL" ] && [ -z "$INFO_SOURCE_UUID" ] && die 'Для --info нужен --source-url или --source'
+ [ -z "$INFO_SOURCE_UUID" ] && INFO_SOURCE_UUID=$(cache_source_uuid "$(normalize_url "$URL")" "$URL")
+ [ -n "$INFO_SOURCE_UUID" ] || die 'Источник не найден в кеше — сначала загрузите его'
+ SOURCE_INFO=$(api_json GET "/projects/${PROJECT_UUID}/sources/${INFO_SOURCE_UUID}") || die 'Не удалось получить источник'
+ jq '{uri, title, type, status: .preparationStatus, duration, channel, description}' <<<"$SOURCE_INFO"
+ exit 0
 fi
 
 # Результат ресёрча: текст из stdin — это компиляция, а не первоисточник.
