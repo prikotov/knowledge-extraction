@@ -39,6 +39,8 @@ scripts/ingest.sh --check
 | `--source-file` | Нет | — |
 | `--source-text` | Текст из stdin | — |
 | `--title` | Для `--source-text` — да | «Результат ресёрча ⟨дата⟩» |
+| `--list` | Нет | Метаданные всех источников |
+| `--info --source <UUID>` | Нет | Карточка одного источника |
 | `--project-name` | Нет | Имя текущей папки |
 | `--project-description` | Нет | «Материалы для извлечения знаний» |
 | `--project` | Нет | Из `.knowledge-extraction.json` |

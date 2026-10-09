@@ -15,8 +15,10 @@ class H(BaseHTTPRequestHandler):
   self.send_response(n); self.send_header('Content-Type',typ); self.end_headers(); self.wfile.write(body.encode())
  def do_GET(self):
   if self.path == '/v1/projects': return self.reply(200,'{"items":[]}')
+  if self.path.endswith('/sources/u1'):
+   return self.reply(200,'{"uuid":"u1","uri":"https://same.example/a","title":"One","preparationStatus":"ready","duration":120,"description":"Timestamps: 0:00 intro"}')
   if '/sources?' in self.path:
-   offset=int(self.path.split('offset=')[1]); items=[{'uuid':'u1','uri':'https://same.example/a','title':'One','preparationStatus':'ready'},{'uuid':'u2','uri':'https://same.example/a','title':'Two','preparationStatus':'processing'}]
+   offset=int(self.path.split('offset=')[1]); items=[{'uuid':'u1','uri':'https://same.example/a','title':'One','preparationStatus':'ready','duration':120,'size':2048},{'uuid':'u2','uri':'https://same.example/a','title':'Two','preparationStatus':'processing'}]
    return self.reply(200,json.dumps({'items':items[offset:offset+1],'pagination':{'total':2}}))
   return self.reply(200,'{"items":[]}')
  def do_POST(self):
@@ -32,6 +34,12 @@ start ok
 (cd "$TMP" && TASK_API_URL="http://127.0.0.1:$PORT/v1" ./scripts/ingest.sh --check --project p > "$TMP/check.out")
 jq -e '(.projects.default.sources | length == 2 and ([.[] | .uuid] | sort == ["u1","u2"])) and .projects.default.sources.old.note == "keep" and .projects.default.sources.old.status == "ready"' "$TMP/.knowledge-extraction.json" >/dev/null
 grep -q 'импортирован из API' "$TMP/check.out"
+# --list and --info expose source metadata without touching the cache.
+(cd "$TMP" && TASK_API_URL="http://127.0.0.1:$PORT/v1" ./scripts/ingest.sh --list > "$TMP/list.out")
+grep -q $'ready\t2 мин\t2 КБ\tOne' "$TMP/list.out"
+(cd "$TMP" && TASK_API_URL="http://127.0.0.1:$PORT/v1" ./scripts/ingest.sh --info --source u1 > "$TMP/info.out")
+grep -q 'Timestamps: 0:00 intro' "$TMP/info.out"
+jq -e '(.title == "One") and (.duration == 120) and (.status == "ready")' "$TMP/info.out" >/dev/null
 stop
 if (cd "$TMP" && TASK_API_URL="http://127.0.0.1:1/v1" ./scripts/chat.sh --chat c --question q >"$TMP/out" 2>"$TMP/err"); then echo 'transport unexpectedly succeeded' >&2; exit 1; fi
 grep -q 'TasK API request failed.' "$TMP/err"
