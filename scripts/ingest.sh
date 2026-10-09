@@ -120,8 +120,15 @@ merge_sources() {
 if "$CHECK_ONLY"; then
  info 'Синхронизирую sources и проверяю статусы…'; SOURCES_JSON=$(all_sources) || die 'Не удалось получить sources'
  MERGED_IMPORTED=0; MERGED_UPDATED=0; merge_sources "$SOURCES_JSON"
- # Statuses are already merged; print every cached record, including API imports.
- jq -r --arg n "$PROJECT_NAME" '.projects[$n].sources | to_entries[] | "\(.key) → \(.value.status // "unknown")"' "$PROJECT_FILE"
+ # Statuses are already merged; print every cached record, including API imports,
+ # enriched with metadata from the API response (duration/title for media).
+ jq -r --arg n "$PROJECT_NAME" --argjson api "$SOURCES_JSON" '
+  ($api.items | map({key: .uuid, value: {d: (.duration // 0), t: (.title // "")}}) | from_entries) as $meta |
+  .projects[$n].sources | to_entries[] |
+  ($meta[.value.uuid // ""] // {d: 0, t: ""}) as $m |
+  "\(.key) → \(.value.status // "unknown")" +
+  (if ($m.d | tonumber? // 0) > 0 then " · \((($m.d | tonumber) / 60 | floor) | tostring) мин" else "" end) +
+  (if $m.t != "" then " — \($m.t)" else "" end)' "$PROJECT_FILE"
  echo "Изменений: $((MERGED_UPDATED + MERGED_IMPORTED))"; exit 0
 fi
 

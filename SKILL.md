@@ -253,10 +253,15 @@ scripts/search.sh --source-url "https://habr.com/ru/articles/1061876/" \
 
 ```bash
 $ scripts/ingest.sh --check
-youtube.com/watch?v=... → processing ✦
-github.com/.../wsff.md → ready
+youtu.be/… → processing ✦
+habr.com/… → ready — Локус контроля: 4 убеждения, которые тихо хоронят ваши амбиции
+youtu.be/… → ready · 45 мин — Грабли во внедрении ИИ в SDLC
 Изменений: 1
 ```
+
+У видео-источников `--check` показывает длительность и заголовок из API — используй
+их для аннотирования материалов (таблицы «материал — длительность» в статьях),
+не скачивая видео и не ходя на YouTube.
 
 `--check` получает все страницы sources из API и добавляет в cache источники, созданные в другой сессии. Записи сопоставляются по UUID: пользовательские поля cache не стираются, а sources с одинаковым URL, но разными UUID сохраняются отдельно.
 
