@@ -18,7 +18,7 @@ class H(BaseHTTPRequestHandler):
   if self.path.endswith('/sources/u1'):
    return self.reply(200,'{"uuid":"u1","uri":"https://same.example/a","title":"One","preparationStatus":"ready","duration":120,"description":"Timestamps: 0:00 intro"}')
   if '/sources?' in self.path:
-   offset=int(self.path.split('offset=')[1]); items=[{'uuid':'u1','uri':'https://same.example/a','title':'One','preparationStatus':'ready','duration':120},{'uuid':'u2','uri':'https://same.example/a','title':'Two','preparationStatus':'processing'}]
+   offset=int(self.path.split('offset=')[1]); items=[{'uuid':'u1','uri':'https://same.example/a','title':'One','preparationStatus':'ready','duration':120,'size':2048},{'uuid':'u2','uri':'https://same.example/a','title':'Two','preparationStatus':'processing'}]
    return self.reply(200,json.dumps({'items':items[offset:offset+1],'pagination':{'total':2}}))
   return self.reply(200,'{"items":[]}')
  def do_POST(self):
@@ -36,7 +36,7 @@ jq -e '(.projects.default.sources | length == 2 and ([.[] | .uuid] | sort == ["u
 grep -q 'импортирован из API' "$TMP/check.out"
 # --list and --info expose source metadata without touching the cache.
 (cd "$TMP" && TASK_API_URL="http://127.0.0.1:$PORT/v1" ./scripts/ingest.sh --list > "$TMP/list.out")
-grep -q $'ready\t2 мин\tOne' "$TMP/list.out"
+grep -q $'ready\t2 мин\t2 КБ\tOne' "$TMP/list.out"
 (cd "$TMP" && TASK_API_URL="http://127.0.0.1:$PORT/v1" ./scripts/ingest.sh --info --source u1 > "$TMP/info.out")
 grep -q 'Timestamps: 0:00 intro' "$TMP/info.out"
 jq -e '(.title == "One") and (.duration == 120) and (.status == "ready")' "$TMP/info.out" >/dev/null

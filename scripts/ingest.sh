@@ -134,7 +134,7 @@ fi
 # Метаданные всех источников проекта (статус, длительность, заголовок).
 if $LIST_MODE; then
  SOURCES_JSON=$(all_sources) || die 'Не удалось получить sources'
- jq -r '.items[] | ((.duration // 0) | floor) as $d | "\(.preparationStatus)\t\(if $d > 0 then "\($d / 60 | floor) мин" else "-" end)\t\(.title // "")\t\(.uri)"' <<<"$SOURCES_JSON"
+ jq -r '.items[] | ((.duration // 0) | floor) as $d | (.size // .diskSize // 0) as $sz | (if $sz >= 1048576 then "\($sz / 1048576 * 10 | round / 10) МБ" elif $sz >= 1024 then "\($sz / 1024 | round) КБ" elif $sz > 0 then "\($sz) Б" else "-" end) as $szs | "\(.preparationStatus)\t\(if $d > 0 then "\($d / 60 | floor) мин" else "-" end)\t\($szs)\t\(.title // "")\t\(.uri)"' <<<"$SOURCES_JSON"
  exit 0
 fi
 
@@ -144,7 +144,7 @@ if $INFO_MODE; then
  [ -z "$INFO_SOURCE_UUID" ] && INFO_SOURCE_UUID=$(cache_source_uuid "$(normalize_url "$URL")" "$URL")
  [ -n "$INFO_SOURCE_UUID" ] || die 'Источник не найден в кеше — сначала загрузите его'
  SOURCE_INFO=$(api_json GET "/projects/${PROJECT_UUID}/sources/${INFO_SOURCE_UUID}") || die 'Не удалось получить источник'
- jq '{uri, title, type, status: .preparationStatus, duration, channel, description}' <<<"$SOURCE_INFO"
+ jq '{uri, title, type, status: .preparationStatus, duration, size, diskSize, channel, description}' <<<"$SOURCE_INFO"
  exit 0
 fi
 
