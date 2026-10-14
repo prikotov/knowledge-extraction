@@ -26,6 +26,7 @@ PROJECT_NAME_ARG=""
 QUESTION=""
 CHAT_UUID=""
 TITLE=""
+EXCLUDE_COMMENTS=false
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -36,6 +37,7 @@ while [ $# -gt 0 ]; do
     --question)   [ $# -ge 2 ] || die "Для --question нужен текст"; QUESTION="$2"; shift 2 ;;
     --chat)       [ $# -ge 2 ] || die "Для --chat нужен UUID"; CHAT_UUID="$2"; shift 2 ;;
     --title)      [ $# -ge 2 ] || die "Для --title нужен текст"; TITLE="$2"; shift 2 ;;
+    --exclude-comments) EXCLUDE_COMMENTS=true; shift ;;
     *) die "Неизвестный аргумент: $1" ;;
   esac
 done
@@ -136,6 +138,7 @@ if [ -z "$CHAT_UUID" ]; then
     CHAT_DATA=$(echo "$CHAT_DATA" | jq --argjson srcs "$SRC_JSON" '. + $srcs')
   fi
 
+  [ "$EXCLUDE_COMMENTS" = true ] && CHAT_DATA=$(echo "$CHAT_DATA" | jq '. + {includeComments: false}')
   CHAT_JSON=$(api_json POST "/chats" "$CHAT_DATA") || die "Не удалось создать чат"
   CHAT_UUID=$(echo "$CHAT_JSON" | jq -r '.uuid // empty')
   [ -z "$CHAT_UUID" ] && die "Не удалось создать чат"
@@ -143,6 +146,11 @@ if [ -z "$CHAT_UUID" ]; then
 else
   [ -z "$QUESTION" ] && die "Для продолжения диалога нужен --question"
   info "Продолжаю диалог $CHAT_UUID"
+  if [ "$EXCLUDE_COMMENTS" = true ]; then
+    api_json PATCH "/chats/${CHAT_UUID}" '{"includeComments": false}' >/dev/null \
+      || die "Не удалось обновить чат (includeComments=false)"
+    info 'Комментарии исключены из контекста диалога'
+  fi
 fi
 
 # ─── Задать вопрос ─────────────────────────────────
