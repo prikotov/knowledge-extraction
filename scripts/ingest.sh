@@ -198,6 +198,7 @@ if $UPDATE_MODE; then
  BODY=$(jq -sc 'add // {}' <(processing_body) <(include_comments_body))
  info "Обновляю параметры обработки: $INFO_SOURCE_UUID"
  api_json PATCH "/projects/${PROJECT_UUID}/sources/${INFO_SOURCE_UUID}" "$BODY" >/dev/null || die 'Не удалось обновить источник'
+ sleep 20  # workflow перезапускается асинхронно — даём статусу уйти с прошлого значения
  info 'Ожидаю обработки…'
  for i in $(seq 1 120); do
   SOURCES_JSON=$(all_sources) || die 'Не удалось получить status source'; STATUS=$(jq -r --arg u "$INFO_SOURCE_UUID" '.items[] | select(.uuid==$u) | .preparationStatus // "processing"' <<<"$SOURCES_JSON" | head -n1)
