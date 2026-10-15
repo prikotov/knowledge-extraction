@@ -5,6 +5,7 @@
 # Использование:
 #   ./search.sh --source <UUID> --query "запрос"
 #   ./search.sh --source-url <URL> --query "запрос"
+#   ./search.sh --source <UUID> --query "запрос" --exclude-comments  # без комментариев зрителей
 
 set -euo pipefail
 
@@ -22,6 +23,7 @@ SOURCE_UUID=""
 PROJECT_UUID=""
 PROJECT_NAME_ARG=""
 QUERY=""
+EXCLUDE_COMMENTS=false
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -30,6 +32,7 @@ while [ $# -gt 0 ]; do
     --project)    [ $# -ge 2 ] || die "Для --project нужен UUID"; PROJECT_UUID="$2"; shift 2 ;;
     --project-name) [ $# -ge 2 ] || die "Для --project-name нужно имя"; PROJECT_NAME_ARG="$2"; shift 2 ;;
     --query)      [ $# -ge 2 ] || die "Для --query нужен текст"; QUERY="$2"; shift 2 ;;
+    --exclude-comments) EXCLUDE_COMMENTS=true; shift ;;
     *) die "Неизвестный аргумент: $1" ;;
   esac
 done
@@ -59,11 +62,28 @@ fi
 # ─── Search ────────────────────────────────────────
 
 info "Поиск: «${QUERY}»"
-RESULT=$(api_json POST "/projects/${PROJECT_UUID}/chunks/search" \
-  "$(jq -n --arg q "$QUERY" --arg src "$SOURCE_UUID" '{query: $q, limit: 10, sourceUuids: [$src]}')") \
+LIMIT=10
+[ "$EXCLUDE_COMMENTS" = true ] && LIMIT=30
+# Серверный фильтр (documentTypes) — лимит выборки не тратится на комментарии;
+# клиентский фильтр ниже остаётся фолбэком для серверов без поддержки параметра.
+if [ "$EXCLUDE_COMMENTS" = true ]; then
+  REQ_BODY=$(jq -n --arg q "$QUERY" --arg src "$SOURCE_UUID" --argjson lim "$LIMIT" \
+    '{query: $q, limit: $lim, sourceUuids: [$src], documentTypes: ["main"]}')
+else
+  REQ_BODY=$(jq -n --arg q "$QUERY" --arg src "$SOURCE_UUID" --argjson lim "$LIMIT" \
+    '{query: $q, limit: $lim, sourceUuids: [$src]}')
+fi
+RESULT=$(api_json POST "/projects/${PROJECT_UUID}/chunks/search" "$REQ_BODY") \
   || die "Не удалось выполнить поиск по чанкам"
 
 CHUNKS=$(echo "$RESULT" | jq '.chunks // []')
+if [ "$EXCLUDE_COMMENTS" = true ]; then
+  TOTAL=$(echo "$CHUNKS" | jq 'length')
+  CHUNKS=$(echo "$CHUNKS" | jq '[.[] | select(((.documentTitle // "") | startswith("Комментарии") or startswith("Comments")) | not)]')
+  FILTERED=$(( TOTAL - $(echo "$CHUNKS" | jq 'length') ))
+  [ "$FILTERED" -gt 0 ] && info "Исключено чанков из комментариев зрителей: $FILTERED"
+  CHUNKS=$(echo "$CHUNKS" | jq '.[0:10]')
+fi
 CHUNK_COUNT=$(echo "$CHUNKS" | jq 'length')
 info "Найдено чанков: $CHUNK_COUNT"
 
@@ -73,7 +93,10 @@ echo ""
 
 if [ "$CHUNK_COUNT" -gt 0 ]; then
   echo "$CHUNKS" | jq -r '
-    .[] | "**Чанк #\(.chunkNumber)**\n\n> \(.text)\n"
+    .[] | ((.documentTitle // "") as $dt |
+      (if ($dt | length) > 60 then ($dt[0:57] + "…") else $dt end) as $t |
+      (if $t == "" then "**Чанк #\(.chunkNumber)**" else "**Чанк #\(.chunkNumber)** — \($t)" end)
+      + "\n\n> \(.text)\n")
   '
 else
   echo "_Чанки не найдены_"
